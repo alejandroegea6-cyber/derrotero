@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Derrotero</title>
+<meta name="theme-color" content="#12303B">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icono-192.png">
+<link rel="apple-touch-icon" href="icono-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<style>
+  :root {
+    --panel: rgba(255, 255, 255, 0.94);
+    --texto: #12303B;
+    --texto-suave: #4E6670;
+    --ambar: #D98A1E;
+    --gps: #2F7DF6;
+    --aviso: #C8402B;
+    --linea: rgba(18, 48, 59, 0.14);
+    --letra: "Barlow Semi Condensed", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --panel: rgba(18, 48, 59, 0.93);
+      --texto: #F3F5F2;
+      --texto-suave: #A9BCC2;
+      --ambar: #F0A43A;
+      --gps: #5C9BFF;
+      --aviso: #FF7A63;
+      --linea: rgba(243, 245, 242, 0.16);
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: #12303B; font-family: var(--letra); color: var(--texto); overflow: hidden; -webkit-tap-highlight-color: transparent; }
+  #mapa { position: fixed; inset: 0; }
+
+  /* Línea de estado arriba */
+  #estado {
+    position: fixed; left: 12px; right: 12px;
+    top: calc(env(safe-area-inset-top, 0px) + 10px);
+    display: flex; gap: 8px; flex-wrap: wrap; pointer-events: none;
+  }
+  .chip {
+    background: var(--panel); color: var(--texto);
+    border-radius: 999px; padding: 6px 12px;
+    font-size: 16px; font-weight: 600; line-height: 1.2;
+    box-shadow: 0 1px 6px rgba(0,0,0,.25);
+  }
+  .chip.aviso { color: var(--aviso); }
+  .chip[hidden] { display: none; }
+
+  /* Panel de datos abajo a la izquierda */
+  #datos {
+    position: fixed; left: 12px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+    background: var(--panel); border-radius: 22px;
+    padding: 10px 18px 12px; min-width: 168px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.3);
+  }
+  .vel { display: flex; align-items: baseline; gap: 6px; }
+  #velocidad { font-size: 76px; font-weight: 700; line-height: 0.95; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+  .unidad { font-size: 20px; font-weight: 600; color: var(--texto-suave); }
+  .alt { display: flex; align-items: baseline; gap: 6px; border-top: 1px solid var(--linea); margin-top: 8px; padding-top: 6px; }
+  #altitud { font-size: 38px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .alt .nombre { font-size: 17px; color: var(--texto-suave); margin-right: 2px; }
+
+  /* Botones a la derecha */
+  #botones {
+    position: fixed; right: 12px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .boton {
+    width: 72px; height: 72px; border: none; border-radius: 20px;
+    background: var(--panel); color: var(--texto);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    font-family: var(--letra); font-size: 15px; font-weight: 600;
+    box-shadow: 0 2px 12px rgba(0,0,0,.3); cursor: pointer;
+  }
+  .boton svg { width: 30px; height: 30px; }
+  .boton:active { transform: scale(0.96); }
+  .boton:focus-visible { outline: 3px solid var(--ambar); outline-offset: 2px; }
+  #centrar.suelto { color: var(--gps); outline: 3px solid var(--gps); outline-offset: -3px; }
+
+  /* Cita del IGN, pequeña pero legible */
+  .maplibregl-ctrl-attrib { font-family: var(--letra); font-size: 12px; }
+  .maplibregl-ctrl-bottom-right { bottom: env(safe-area-inset-bottom, 0px); }
+
+  @media (prefers-reduced-motion: reduce) { .boton:active { transform: none; } }
+</style>
+</head>
+<body>
+<div id="mapa" aria-label="Mapa"></div>
+
+<div id="estado" aria-live="polite">
+  <span class="chip" id="chip-gps">Buscando GPS…</span>
+  <span class="chip aviso" id="chip-red" hidden>Sin conexión: solo se ve el mapa ya cargado</span>
+  <span class="chip aviso" id="chip-pantalla" hidden>La pantalla puede apagarse</span>
+</div>
+
+<div id="datos">
+  <div class="vel"><span id="velocidad">—</span><span class="unidad">km/h</span></div>
+  <div class="alt"><span class="nombre">Altitud</span><span id="altitud">—</span><span class="unidad">m</span></div>
+</div>
+
+<div id="botones">
+  <button class="boton" id="capa" aria-label="Cambiar capa del mapa">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3 2 8l10 5 10-5-10-5Z"/><path d="m2 13 10 5 10-5"/></svg>
+    <span id="capa-nombre">Topo</span>
+  </button>
+  <button class="boton" id="centrar" aria-label="Centrar el mapa en mi posición">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+    <span>Centrar</span>
+  </button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Capas del IGN (licencia CC BY 4.0, citando al IGN) ----------
+  var CAPAS = {
+    satelite: {
+      nombre: "Satélite",
+      url: "https://www.ign.es/wmts/pnoa-ma?layer=OI.OrthoimageCoverage&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={z}&TileCol={x}&TileRow={y}",
+      maxzoom: 19
+    },
+    topo: {
+      nombre: "Topo",
+      url: "https://www.ign.es/wmts/mapa-raster?layer=MTN&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={z}&TileCol={x}&TileRow={y}",
+      maxzoom: 17
+    }
+  };
+  var CITA = 'Mapas © <a href="https://www.ign.es" target="_blank" rel="noopener">Instituto Geográfico Nacional</a> (CC BY 4.0)';
+
+  // ---------- Lo que la app recuerda (en este móvil) ----------
+  function leer(clave, porDefecto) {
+    try { var v = localStorage.getItem("derrotero." + clave); return v ? JSON.parse(v) : porDefecto; }
+    catch (e) { return porDefecto; }
+  }
+  function guardar(clave, valor) {
+    try { localStorage.setItem("derrotero." + clave, JSON.stringify(valor)); } catch (e) {}
+  }
+
+  var capaActual = leer("capa", "satelite");
+  if (!CAPAS[capaActual]) capaActual = "satelite";
+  // Antes de tener GPS se ve la última zona vista; la primera vez, España entera.
+  var vista = leer("vista", { centro: [-3.7, 40.2], zoom: 5 });
+
+  // ---------- Mapa ----------
+  var fuentes = {}, capas = [];
+  Object.keys(CAPAS).forEach(function (id) {
+    fuentes[id] = { type: "raster", tiles: [CAPAS[id].url], tileSize: 256, maxzoom: CAPAS[id].maxzoom, attribution: CITA };
+    capas.push({ id: id, type: "raster", source: id, layout: { visibility: id === capaActual ? "visible" : "none" } });
+  });
+  fuentes.yo = { type: "geojson", data: { type: "FeatureCollection", features: [] } };
+  capas.push({ id: "precision", type: "fill", source: "yo", filter: ["==", ["get", "tipo"], "precision"],
+    paint: { "fill-color": "#2F7DF6", "fill-opacity": 0.15 } });
+  capas.push({ id: "precision-borde", type: "line", source: "yo", filter: ["==", ["get", "tipo"], "precision"],
+    paint: { "line-color": "#2F7DF6", "line-opacity": 0.5, "line-width": 1.5 } });
+  capas.push({ id: "punto", type: "circle", source: "yo", filter: ["==", ["get", "tipo"], "punto"],
+    paint: { "circle-radius": 9, "circle-color": "#2F7DF6", "circle-stroke-color": "#FFFFFF", "circle-stroke-width": 3 } });
+
+  var mapa = new maplibregl.Map({
+    container: "mapa",
+    style: { version: 8, sources: fuentes, layers: capas },
+    center: vista.centro,
+    zoom: vista.zoom,
+    maxZoom: 19,
+    attributionControl: false,
+    dragRotate: false,
+    pitchWithRotate: false
+  });
+  mapa.touchZoomRotate.disableRotation();
+  mapa.touchPitch.disable();
+  mapa.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+
+  mapa.on("moveend", function () {
+    var c = mapa.getCenter();
+    guardar("vista", { centro: [c.lng, c.lat], zoom: mapa.getZoom() });
+  });
+
+  // ---------- Cambiar de capa ----------
+  var botonCapa = document.getElementById("capa");
+  var nombreCapa = document.getElementById("capa-nombre");
+  function mostrarCapa() {
+    Object.keys(CAPAS).forEach(function (id) {
+      mapa.setLayoutProperty(id, "visibility", id === capaActual ? "visible" : "none");
+    });
+    // El botón dice a qué capa cambias al pulsarlo
+    var otra = capaActual === "satelite" ? "topo" : "satelite";
+    nombreCapa.textContent = CAPAS[otra].nombre;
+    botonCapa.setAttribute("aria-label", "Cambiar a " + CAPAS[otra].nombre);
+  }
+  botonCapa.addEventListener("click", function () {
+    capaActual = capaActual === "satelite" ? "topo" : "satelite";
+    guardar("capa", capaActual);
+    mostrarCapa();
+  });
+  mapa.on("load", mostrarCapa);
+
+  // ---------- Posición GPS ----------
+  var chipGps = document.getElementById("chip-gps");
+  var botonCentrar = document.getElementById("centrar");
+  var velocidad = document.getElementById("velocidad");
+  var altitud = document.getElementById("altitud");
+  var seguir = true;        // el mapa sigue tu posición
+  var primeraVez = true;
+  var ultima = null;
+
+  function circulo(lng, lat, metros) {
+    var puntos = [], n = 48;
+    var dLat = metros / 111320;
+    var dLng = metros / (111320 * Math.cos(lat * Math.PI / 180));
+    for (var i = 0; i <= n; i++) {
+      var a = (i / n) * 2 * Math.PI;
+      puntos.push([lng + dLng * Math.cos(a), lat + dLat * Math.sin(a)]);
+    }
+    return puntos;
+  }
+
+  function pintarPosicion(p) {
+    var lng = p.coords.longitude, lat = p.coords.latitude;
+    var fuente = mapa.getSource("yo");
+    if (fuente) {
+      fuente.setData({ type: "FeatureCollection", features: [
+        { type: "Feature", properties: { tipo: "precision" }, geometry: { type: "Polygon", coordinates: [circulo(lng, lat, Math.max(p.coords.accuracy, 1))] } },
+        { type: "Feature", properties: { tipo: "punto" }, geometry: { type: "Point", coordinates: [lng, lat] } }
+      ]});
+    }
+    if (primeraVez) {
+      primeraVez = false;
+      mapa.jumpTo({ center: [lng, lat], zoom: Math.max(mapa.getZoom(), 15) });
+    } else if (seguir) {
+      mapa.easeTo({ center: [lng, lat], duration: 600 });
+    }
+  }
+
+  function enPosicion(p) {
+    ultima = p;
+    var c = p.coords;
+    chipGps.textContent = "GPS ±" + Math.round(c.accuracy) + " m";
+    chipGps.classList.toggle("aviso", c.accuracy > 50);
+    // El navegador da la velocidad en metros por segundo; a veces no la da.
+    velocidad.textContent = (c.speed === null || isNaN(c.speed)) ? "—" : Math.round(c.speed * 3.6);
+    altitud.textContent = (c.altitude === null || isNaN(c.altitude)) ? "—" : Math.round(c.altitude);
+    if (mapa.loaded()) pintarPosicion(p); else mapa.once("load", function () { pintarPosicion(p); });
+  }
+
+  function enError(e) {
+    chipGps.classList.add("aviso");
+    if (e.code === 1) chipGps.textContent = "Sin permiso de ubicación: actívalo para esta web en Chrome";
+    else if (e.code === 3) chipGps.textContent = "El GPS tarda en responder…";
+    else chipGps.textContent = "No se obtiene la posición";
+  }
+
+  if ("geolocation" in navigator) {
+    navigator.geolocation.watchPosition(enPosicion, enError, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+  } else {
+    chipGps.textContent = "Este navegador no da la posición";
+    chipGps.classList.add("aviso");
+  }
+
+  // Si mueves el mapa con el dedo, deja de seguirte hasta que pulses Centrar
+  mapa.on("dragstart", function () { seguir = false; botonCentrar.classList.add("suelto"); });
+  botonCentrar.addEventListener("click", function () {
+    seguir = true;
+    botonCentrar.classList.remove("suelto");
+    if (ultima) mapa.easeTo({ center: [ultima.coords.longitude, ultima.coords.latitude], zoom: Math.max(mapa.getZoom(), 15), duration: 600 });
+  });
+
+  // ---------- Conexión ----------
+  var chipRed = document.getElementById("chip-red");
+  function verRed() { chipRed.hidden = navigator.onLine; }
+  window.addEventListener("online", verRed);
+  window.addEventListener("offline", verRed);
+  verRed();
+
+  // ---------- Pantalla siempre encendida ----------
+  var chipPantalla = document.getElementById("chip-pantalla");
+  var bloqueo = null;
+  function pedirPantalla() {
+    if (!("wakeLock" in navigator)) { chipPantalla.hidden = false; return; }
+    navigator.wakeLock.request("screen").then(function (b) {
+      bloqueo = b; chipPantalla.hidden = true;
+      b.addEventListener("release", function () { bloqueo = null; });
+    }).catch(function () { chipPantalla.hidden = false; });
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && !bloqueo) pedirPantalla();
+  });
+  pedirPantalla();
+
+  // ---------- Funcionar como app instalada ----------
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+  }
+})();
+</script>
+</body>
+</html>

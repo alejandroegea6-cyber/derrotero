@@ -1,0 +1,16 @@
+{
+  "name": "Derrotero",
+  "short_name": "Derrotero",
+  "description": "Mapas y rutas por pistas y caminos",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#12303B",
+  "theme_color": "#12303B",
+  "icons": [
+    { "src": "icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
