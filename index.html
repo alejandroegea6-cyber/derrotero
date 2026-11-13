@@ -450,7 +450,8 @@
     var c = mapa.getCenter();
     guardar("vista", { centro: [c.lng, c.lat], zoom: mapa.getZoom(), rumbo: mapa.getBearing() });
   });
-  var mapaListo = new Promise(function (ok) { mapa.on("load", ok); });
+  // Listo en cuanto está montado el mapa, sin esperar a que bajen todas las imágenes
+  var mapaListo = new Promise(function (ok) { mapa.once("style.load", ok); });
 
   // ---------- Capa ----------
   function mostrarCapa() {
