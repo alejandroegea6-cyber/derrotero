@@ -1,6 +1,6 @@
-// Derrotero 0.1 — guarda la app en el móvil para que abra aunque no haya cobertura.
+// Derrotero 0.2 — guarda la app en el móvil para que abra aunque no haya cobertura.
 // Los mapas todavía no se guardan para uso sin conexión (eso es la Fase 4).
-var VERSION = "derrotero-0.1";
+var VERSION = "derrotero-0.2";
 var APP = [
   "./",
   "./index.html",
