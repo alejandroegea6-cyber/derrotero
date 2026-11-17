@@ -13,247 +13,529 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <style>
+  /* ---------- Colores (los de la maqueta) ---------- */
   :root {
-    --panel: rgba(255, 255, 255, 0.94);
-    --fondo: #FFFFFF;
+    --panel: rgba(255, 255, 255, 0.95);
+    --barra: #FFFFFF;
+    --hoja: #FFFFFF;
     --texto: #12303B;
-    --texto-suave: #4E6670;
+    --suave: #4E6670;
     --ambar: #D98A1E;
-    --gps: #2F7DF6;
+    --gps: #1F64D6;
     --rojo: #C8402B;
-    --rojo-on: #FFFFFF;
-    --aviso: #C8402B;
+    --verde: #1F7A45;
     --linea: rgba(18, 48, 59, 0.14);
-    --relleno: rgba(18, 48, 59, 0.06);
+    --chip: rgba(18, 48, 59, 0.06);
     --letra: "Barlow Semi Condensed", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif;
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
-      --panel: rgba(18, 48, 59, 0.93);
-      --fondo: #12303B;
-      --texto: #F3F5F2;
-      --texto-suave: #A9BCC2;
-      --ambar: #F0A43A;
-      --gps: #5C9BFF;
-      --rojo: #E2553D;
-      --rojo-on: #FFFFFF;
-      --aviso: #FF7A63;
-      --linea: rgba(243, 245, 242, 0.16);
-      --relleno: rgba(243, 245, 242, 0.07);
-      color-scheme: dark;
+    :root:not([data-tema="claro"]) {
+      --panel: rgba(18, 48, 59, 0.94); --barra: #12303B; --hoja: #15394A; --texto: #F3F5F2; --suave: #A9BCC2;
+      --ambar: #F0A43A; --gps: #7FB0FF; --rojo: #E2553D; --verde: #4CC383;
+      --linea: rgba(243, 245, 242, 0.16); --chip: rgba(243, 245, 242, 0.10); color-scheme: dark;
     }
   }
+  :root[data-tema="oscuro"] {
+    --panel: rgba(18, 48, 59, 0.94); --barra: #12303B; --hoja: #15394A; --texto: #F3F5F2; --suave: #A9BCC2;
+    --ambar: #F0A43A; --gps: #7FB0FF; --rojo: #E2553D; --verde: #4CC383;
+    --linea: rgba(243, 245, 242, 0.16); --chip: rgba(243, 245, 242, 0.10); color-scheme: dark;
+  }
+
+  /* ---------- Huecos que deja el menú según la orientación ----------
+     Vertical: menú abajo. Horizontal: menú en el lateral donde queda el borde de abajo del móvil. */
+  :root {
+    --sup: env(safe-area-inset-top, 0px);
+    --m-abajo: calc(74px + env(safe-area-inset-bottom, 0px));
+    --m-der: 0px;
+    --m-izq: 0px;
+  }
+  body.horiz { --m-abajo: 0px; --m-der: calc(90px + env(safe-area-inset-right, 0px)); }
+  body.horiz.menu-izq { --m-der: 0px; --m-izq: calc(90px + env(safe-area-inset-left, 0px)); }
+
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; background: #12303B; font-family: var(--letra); color: var(--texto); overflow: hidden; -webkit-tap-highlight-color: transparent; }
   #mapa { position: fixed; inset: 0; }
   button { font-family: var(--letra); }
+  button:focus-visible { outline: 3px solid var(--ambar); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  .gris { color: var(--suave) !important; }
+  .gris > svg, .gris > span { opacity: .55; }
 
-  /* Línea de estado arriba a la izquierda */
-  #estado {
-    position: fixed; left: 12px; right: 76px;
-    top: calc(env(safe-area-inset-top, 0px) + 10px);
-    display: flex; gap: 8px; flex-wrap: wrap; pointer-events: none;
+  /* ---------- Indicadores (arriba a la izquierda) ---------- */
+  #indicadores {
+    position: fixed; z-index: 3;
+    left: calc(var(--m-izq) + 14px); right: calc(var(--m-der) + 70px);
+    top: calc(var(--sup) + 12px);
+    display: flex; gap: 6px; flex-wrap: wrap; align-items: center; pointer-events: none;
   }
-  .chip {
-    background: var(--panel); color: var(--texto);
-    border-radius: 999px; padding: 6px 12px;
-    font-size: 16px; font-weight: 600; line-height: 1.2;
-    box-shadow: 0 1px 6px rgba(0,0,0,.25);
+  .ind {
+    pointer-events: auto; min-height: 32px; border: none; border-radius: 999px; padding: 0 10px;
+    background: var(--panel); color: var(--texto); font-size: 15px; font-weight: 600;
+    box-shadow: 0 1px 6px rgba(0,0,0,.25); display: flex; align-items: center; gap: 6px; cursor: pointer;
   }
-  .chip.aviso { color: var(--aviso); }
-  .chip[hidden] { display: none; }
-  #chip-vista { pointer-events: auto; border: none; cursor: pointer; color: #B0306A; }
-  @media (prefers-color-scheme: dark) { #chip-vista { color: #FF7DB4; } }
+  .ind .pto { width: 9px; height: 9px; border-radius: 50%; background: #2E9E5B; flex: none; }
+  .ind.mal .pto { background: var(--ambar); }
+  .ind.rojo { background: var(--rojo); color: #FFFFFF; }
+  .ind.rojo .pto { background: #FFFFFF; }
+  .ind svg { width: 16px; height: 16px; flex: none; }
+  .ind.sol { font-variant-numeric: tabular-nums; padding: 0 9px; gap: 4px; font-size: 14px; font-weight: 700; }
+  .ind.sol svg { width: 14px; height: 14px; }
+  /* Pantalla nocturna: tinte rojo por encima de todo (no cambia el brillo real del móvil) */
+  #tinte-noche { position: fixed; inset: 0; pointer-events: none; z-index: 100; background: #FF1A00; mix-blend-mode: multiply; opacity: 0; }
+  .tabla-sol { width: 100%; border-collapse: collapse; font-size: 16px; font-variant-numeric: tabular-nums; margin: 6px 0 4px; }
+  .tabla-sol th { text-align: left; color: var(--suave); font-weight: 600; padding: 4px 6px; }
+  .tabla-sol td { padding: 5px 6px; border-top: 1px solid var(--linea); }
+  .tabla-sol td:first-child { font-weight: 600; }
+  .tabla-sol .hoy { font-weight: 700; }
+  #ind-vista { color: #B0306A; }
+  :root[data-tema="oscuro"] #ind-vista { color: #FF7DB4; }
+  @media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) #ind-vista { color: #FF7DB4; } }
 
-  /* Botones pequeños arriba a la derecha */
-  #arriba {
-    position: fixed; right: 12px;
-    top: calc(env(safe-area-inset-top, 0px) + 10px);
-    display: flex; flex-direction: column; gap: 10px; align-items: flex-end;
-  }
-  .mini {
-    position: relative; width: 52px; height: 52px; border: none; border-radius: 16px;
-    background: var(--panel); color: var(--texto);
+  /* ---------- Mejoras (libreta) y brújula, arriba a la derecha ---------- */
+  #btn-mejoras {
+    position: fixed; z-index: 7; right: calc(var(--m-der) + 14px); top: calc(var(--sup) + 14px);
+    width: 38px; height: 30px; padding: 0; border: 1px solid var(--linea); border-radius: 999px;
+    background: var(--panel); color: var(--texto); box-shadow: 0 1px 8px rgba(0,0,0,.28);
     display: grid; place-items: center; cursor: pointer;
-    box-shadow: 0 2px 10px rgba(0,0,0,.3);
   }
-  .mini svg { width: 26px; height: 26px; }
-  .mini .cnt {
-    position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px;
-    border-radius: 999px; background: var(--ambar); color: #12303B;
-    font-size: 13px; font-weight: 700; display: grid; place-items: center;
+  #btn-mejoras svg { width: 18px; height: 18px; }
+  #btn-mejoras .cnt {
+    position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 4px;
+    border-radius: 999px; background: var(--ambar); color: #12303B; font-size: 11px; font-weight: 700; display: grid; place-items: center;
   }
-  #brujula[hidden] { display: none; }
+  #brujula {
+    position: fixed; z-index: 3; right: calc(var(--m-der) + 10px); top: calc(var(--sup) + 56px);
+    width: 46px; height: 46px; border: none; border-radius: 50%; background: var(--panel);
+    box-shadow: 0 2px 10px rgba(0,0,0,.3); display: grid; place-items: center; cursor: pointer; color: var(--texto);
+  }
+  #brujula svg { width: 24px; height: 24px; }
   #aguja { transition: transform .2s; }
 
-  /* Panel de datos abajo a la izquierda */
+  /* ---------- Panel de datos ---------- */
   #datos {
-    position: fixed; left: 12px;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
-    background: var(--panel); border-radius: 22px;
-    padding: 10px 18px 12px; min-width: 168px;
-    box-shadow: 0 2px 12px rgba(0,0,0,.3);
+    position: fixed; z-index: 3; left: calc(var(--m-izq) + 14px); bottom: calc(var(--m-abajo) + 66px);
+    width: 186px; background: var(--panel); border-radius: 22px; padding: 8px 14px 10px;
+    box-shadow: 0 2px 14px rgba(0,0,0,.3);
   }
-  .vel { display: flex; align-items: baseline; gap: 6px; }
-  #velocidad { font-size: 76px; font-weight: 700; line-height: 0.95; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
-  .unidad { font-size: 20px; font-weight: 600; color: var(--texto-suave); }
-  .fila { display: flex; align-items: baseline; gap: 6px; border-top: 1px solid var(--linea); margin-top: 8px; padding-top: 6px; }
-  .fila .valor { font-size: 38px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .fila .nombre { font-size: 17px; color: var(--texto-suave); margin-right: 2px; }
-  #fila-grab[hidden] { display: none; }
-  #fila-grab .valor { font-size: 30px; }
-  #fila-grab .punto { width: 10px; height: 10px; border-radius: 50%; background: var(--rojo); align-self: center; }
+  body.horiz #datos { bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); width: 196px; }
+  #datos { max-height: calc(100% - var(--m-abajo) - 66px - var(--sup) - 56px); overflow-y: auto; overscroll-behavior: contain;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  body.horiz #datos { max-height: calc(100% - var(--sup) - 24px); }
+  .d-grande { display: flex; align-items: baseline; gap: 6px; }
+  .d-grande .v { font-size: 64px; font-weight: 700; line-height: .95; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+  .d-grande .u { font-size: 19px; font-weight: 600; color: var(--suave); }
+  .d-etq { display: block; font-size: 13px; color: var(--suave); }
+  .d-celdas { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2px 8px; border-top: 1px solid var(--linea); margin-top: 6px; padding-top: 4px; }
+  .d-celda { display: flex; flex-direction: column; min-width: 0; }
+  .d-celda.ancha { grid-column: span 2; }
+  .d-celda .n { font-size: 13px; color: var(--suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .d-celda .v { font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .u-p { font-size: 14px; font-weight: 600; color: var(--suave); margin-left: 3px; }
+  .d-desp { border-top: 1px solid var(--linea); margin-top: 6px; padding-top: 2px; }
+  .d-fila { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 4px 0; font-size: 15px; width: 100%; }
+  .d-fila .n { color: var(--suave); }
+  .d-fila .v { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .d-fila.col { flex-direction: column; align-items: flex-start; gap: 0; }
+  .d-fila.col .v { text-align: left; }
+  button.d-fila { border: none; background: transparent; color: var(--texto); cursor: pointer; text-align: left; font-family: var(--letra); }
+  .d-cero { min-height: 32px; border: 1px solid var(--linea); background: var(--chip); color: var(--texto); border-radius: 999px; padding: 0 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .d-flecha { width: 100%; min-height: 30px; border: none; background: transparent; color: var(--suave); display: grid; place-items: center; cursor: pointer; padding: 0; }
+  .d-flecha svg { width: 20px; height: 20px; transition: transform .15s; }
+  #datos.abierto .d-flecha svg { transform: rotate(180deg); }
+  #datos.mantener { outline: 3px solid var(--ambar); outline-offset: 2px; }
 
-  /* Botones grandes abajo a la derecha */
+  /* Elegir datos */
+  .ed-grupo { padding: 14px 18px 6px; display: flex; flex-direction: column; gap: 2px; }
+  .ed-grupo b { font-size: 14px; font-weight: 700; color: var(--suave); text-transform: uppercase; letter-spacing: .04em; }
+  .ed-grupo small { font-size: 13px; color: var(--suave); }
+  .ed-fila { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 2px 10px 2px 4px; border-top: 1px solid var(--linea); background: var(--hoja); }
+  .ed-fila.arr { background: var(--chip); box-shadow: 0 2px 12px rgba(0,0,0,.25); position: relative; z-index: 2; }
+  .ed-asa { width: 44px; height: 44px; display: grid; place-items: center; color: var(--suave); touch-action: none; cursor: grab; flex: none; }
+  .ed-asa svg { width: 20px; height: 20px; }
+  .ed-fila .t { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .ed-fila b { font-size: 17px; font-weight: 600; }
+  .ed-fila small { font-size: 13px; color: var(--suave); }
+  .ed-q { width: 40px; height: 40px; border: none; border-radius: 50%; background: var(--chip); color: var(--texto); display: grid; place-items: center; cursor: pointer; flex: none; }
+  .ed-q svg { width: 18px; height: 18px; }
+  .ed-anadir { min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--linea); background: var(--chip); color: var(--texto); font-size: 15px; font-weight: 600; cursor: pointer; flex: none; }
+
+  /* ---------- Botones redondos sobre el mapa ---------- */
   #botones {
-    position: fixed; right: 12px;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
-    display: flex; flex-direction: column; gap: 12px;
+    position: fixed; z-index: 3; right: calc(var(--m-der) + 14px); bottom: calc(var(--m-abajo) + 66px);
+    display: flex; flex-direction: column; gap: 10px;
   }
-  @media (max-height: 560px) {
-    #botones { display: grid; grid-template-columns: 72px 72px; grid-auto-flow: row; }
+  body.horiz #botones { bottom: auto; top: calc(var(--sup) + 110px); display: grid; grid-template-columns: repeat(2, 52px); gap: 8px; }
+  .redondo {
+    width: 56px; height: 56px; border: none; border-radius: 50%; background: var(--panel); color: var(--texto);
+    box-shadow: 0 2px 14px rgba(0,0,0,.3); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    font-size: 13px; font-weight: 600; cursor: pointer; padding: 0;
   }
-  .boton {
-    width: 72px; height: 72px; border: none; border-radius: 20px;
-    background: var(--panel); color: var(--texto);
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-    font-size: 15px; font-weight: 600;
-    box-shadow: 0 2px 12px rgba(0,0,0,.3); cursor: pointer;
-  }
-  .boton svg { width: 30px; height: 30px; }
-  .boton:active, .mini:active { transform: scale(0.96); }
-  .boton:focus-visible, .mini:focus-visible { outline: 3px solid var(--ambar); outline-offset: 2px; }
-  #centrar.suelto { color: var(--gps); outline: 3px solid var(--gps); outline-offset: -3px; }
-  #grabar { color: var(--rojo); }
-  #grabar.activo { background: var(--rojo); color: var(--rojo-on); }
+  body.horiz .redondo { width: 52px; height: 52px; font-size: 12px; }
+  .redondo svg { width: 22px; height: 22px; }
+  .redondo:active { transform: scale(.95); }
+  #centrar { color: var(--gps); }
+  #centrar.suelto { outline: 3px solid var(--gps); outline-offset: -3px; }
+  #chincheta { font-size: 12px; }
 
   /* Cita del IGN */
   .maplibregl-ctrl-attrib { font-family: var(--letra); font-size: 12px; }
-  .maplibregl-ctrl-bottom-right { bottom: env(safe-area-inset-bottom, 0px); }
+  .maplibregl-ctrl-bottom-right { z-index: 1; }
+  .maplibregl-ctrl-bottom-right { right: calc(var(--m-der) + 80px); bottom: calc(var(--m-abajo) + 62px); }
+  body.horiz .maplibregl-ctrl-bottom-right { right: auto; left: calc(var(--m-izq) + 222px); bottom: 2px; }
 
-  /* Hojas (pantallas que suben desde abajo) */
-  #velo { position: fixed; inset: 0; background: rgba(0,0,0,.45); }
-  #velo[hidden], #hoja[hidden] { display: none; }
+  /* ---------- Menú fijo ---------- */
+  #menu {
+    position: fixed; z-index: 6; left: 0; right: 0; bottom: 0; height: var(--m-abajo);
+    background: var(--barra); border-top: 1px solid var(--linea); box-shadow: 0 -2px 14px rgba(0,0,0,.25);
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 6px 8px calc(env(safe-area-inset-bottom, 0px) + 6px);
+  }
+  body.horiz #menu {
+    left: auto; top: 0; right: 0; width: var(--m-der); height: auto;
+    grid-template-columns: none; grid-template-rows: repeat(4, minmax(0, 1fr));
+    border-top: none; border-left: 1px solid var(--linea); box-shadow: -2px 0 14px rgba(0,0,0,.25);
+    padding: calc(var(--sup) + 6px) calc(env(safe-area-inset-right, 0px) + 4px) 6px 4px;
+  }
+  body.horiz.menu-izq #menu {
+    right: auto; left: 0; width: var(--m-izq); border-left: none; border-right: 1px solid var(--linea);
+    box-shadow: 2px 0 14px rgba(0,0,0,.25); padding: calc(var(--sup) + 6px) 4px 6px calc(env(safe-area-inset-left, 0px) + 4px);
+  }
+  #menu button {
+    border: none; background: transparent; color: var(--texto); display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; font-size: 15px; font-weight: 600; cursor: pointer; min-height: 56px; border-radius: 14px;
+  }
+  #menu button svg { width: 28px; height: 28px; }
+  #menu button[aria-current="true"] { background: var(--chip); color: var(--gps); }
+
+  /* ---------- Paneles del menú (media pantalla, estirables) ---------- */
+  #atrapa { position: fixed; inset: 0; z-index: 4; }
+  #panel {
+    position: fixed; z-index: 5; left: 0; right: 0; bottom: var(--m-abajo); height: 50%;
+    background: var(--hoja); color: var(--texto); border-radius: 22px 22px 0 0; box-shadow: 0 -4px 22px rgba(0,0,0,.35);
+    display: flex; flex-direction: column; overflow: hidden; transition: height .22s ease, width .22s ease;
+  }
+  #panel.completo { height: calc(100% - var(--m-abajo) - var(--sup) - 8px); }
+  body.horiz #panel { top: 0; bottom: 0; height: auto; left: auto; right: var(--m-der); width: 50%; border-radius: 22px 0 0 22px; box-shadow: -4px 0 22px rgba(0,0,0,.35); }
+  body.horiz.menu-izq #panel { right: auto; left: var(--m-izq); border-radius: 0 22px 22px 0; box-shadow: 4px 0 22px rgba(0,0,0,.35); }
+  body.horiz #panel.completo { width: calc(100% - var(--m-der) - var(--m-izq)); height: auto; border-radius: 0; }
+  .asa { display: flex; justify-content: center; padding: 8px 0 4px; cursor: grab; touch-action: none; flex: none; }
+  .asa span { width: 44px; height: 5px; border-radius: 3px; background: var(--linea); }
+  body.horiz .asa { display: none; }
+  .pcab { display: flex; align-items: center; gap: 8px; padding: 2px 12px 8px 18px; touch-action: none; flex: none; }
+  body.horiz .pcab { padding-top: calc(var(--sup) + 12px); }
+  #panel.completo .pcab, body.horiz .pcab { padding-right: 64px; }
+  body.horiz.menu-izq .pcab { padding-right: 64px; }
+  .pcab h2 { flex: 1; margin: 0; font-size: 22px; font-weight: 700; }
+  .redondo-p { width: 44px; height: 44px; border: none; border-radius: 50%; background: var(--chip); color: var(--texto); display: grid; place-items: center; cursor: pointer; flex: none; }
+  .redondo-p svg { width: 20px; height: 20px; }
+  .pcuerpo { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 12px; }
+
+  .pestanas { display: flex; gap: 6px; padding: 0 12px 8px; }
+  .pestanas button { flex: 1; min-height: 44px; border: none; border-radius: 12px; background: var(--chip); color: var(--texto); font-size: 17px; font-weight: 700; cursor: pointer; }
+  .pestanas button[aria-selected="true"] { background: var(--texto); color: var(--hoja); }
+
+  .fila-lista {
+    width: 100%; min-height: 64px; border: none; border-top: 1px solid var(--linea); background: transparent; color: var(--texto);
+    display: flex; align-items: center; gap: 12px; padding: 8px 16px; text-align: left; cursor: pointer; font-size: 17px;
+  }
+  .fila-lista .t { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .fila-lista .n { font-size: 17px; font-weight: 600; }
+  .fila-lista .s { font-size: 14px; color: var(--suave); }
+  .fila-lista.hecha { opacity: .6; }
+  .vacio { color: var(--suave); font-size: 17px; padding: 14px 18px; line-height: 1.35; }
+
+  .grupo { padding: 14px 18px 4px; font-size: 14px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--suave); }
+  .ajuste {
+    width: 100%; min-height: 50px; border: none; border-top: 1px solid var(--linea); background: transparent; color: var(--texto);
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 18px; font-size: 17px; text-align: left; cursor: pointer;
+  }
+  .ajuste .v { font-size: 16px; color: var(--suave); text-align: right; }
+  .interruptor { width: 50px; height: 30px; border-radius: 15px; background: var(--linea); position: relative; flex: none; transition: background .15s; }
+  .interruptor::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: left .15s; }
+  .interruptor.si { background: var(--verde); }
+  .interruptor.si::after { left: 23px; }
+  .nota-aj { display: block; padding: 2px 18px 6px; font-size: 14px; color: var(--suave); }
+
+  .caja { padding: 0 14px 8px; }
+  .caja label { display: block; font-size: 14px; color: var(--suave); margin-bottom: 4px; }
+  .caja textarea { width: 100%; font: inherit; font-size: 17px; color: var(--texto); background: var(--chip); border: 1px solid var(--linea); border-radius: 12px; padding: 10px 12px; resize: vertical; }
+  .chips { display: flex; gap: 8px; padding: 0 12px 8px; flex-wrap: wrap; }
+  .chips button { min-height: 40px; padding: 0 12px; border: 1px solid var(--linea); border-radius: 999px; background: var(--chip); color: var(--texto); font-size: 15px; font-weight: 600; cursor: pointer; }
+  .chips button.sel { background: var(--texto); color: var(--hoja); }
+  .chips .ok { background: var(--texto); color: var(--hoja); }
+
+  /* ---------- Hojas de confirmación y fichas (encima de todo) ---------- */
+  #velo { position: fixed; inset: 0; z-index: 19; background: rgba(0,0,0,.45); }
   #hoja {
-    position: fixed; left: 0; right: 0; bottom: 0; max-height: 92vh; overflow-y: auto;
-    background: var(--fondo); color: var(--texto);
-    border-radius: 22px 22px 0 0;
+    position: fixed; z-index: 20; left: 0; right: 0; bottom: 0; max-height: 92vh; overflow-y: auto;
+    background: var(--hoja); color: var(--texto); border-radius: 22px 22px 0 0;
     padding: 18px 18px calc(env(safe-area-inset-bottom, 0px) + 18px);
-    box-shadow: 0 -4px 20px rgba(0,0,0,.35);
-    max-width: 640px; margin: 0 auto;
+    box-shadow: 0 -4px 20px rgba(0,0,0,.35); max-width: 640px; margin: 0 auto;
   }
   #hoja h2 { font-size: 26px; margin: 0 0 6px; font-weight: 700; }
   #hoja h3 { font-size: 20px; margin: 18px 0 6px; font-weight: 600; }
   #hoja p { font-size: 17px; line-height: 1.4; margin: 6px 0; }
-  .pista { color: var(--texto-suave); font-size: 16px !important; }
+  .pista { color: var(--suave); font-size: 16px !important; }
   .cab { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
   .cab h2 { flex: 1; margin: 0 !important; }
-  .cerrar { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--linea); background: transparent; color: var(--texto); font-size: 26px; line-height: 1; cursor: pointer; }
+  .cerrar { width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--chip); color: var(--texto); font-size: 26px; line-height: 1; cursor: pointer; }
   .acciones { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
-  .acciones button, .btn {
+  .acciones button {
     flex: 1; min-height: 52px; border-radius: 14px; border: 1px solid var(--linea);
-    background: var(--relleno); color: var(--texto); font-size: 18px; font-weight: 600; cursor: pointer; padding: 0 14px;
+    background: var(--chip); color: var(--texto); font-size: 18px; font-weight: 600; cursor: pointer; padding: 0 14px;
   }
-  .acciones .ok { background: var(--texto); color: var(--fondo); border-color: transparent; }
+  .acciones .ok { background: var(--texto); color: var(--hoja); border-color: transparent; }
   .acciones .peligro { color: var(--rojo); }
-  .acciones .rojo { background: var(--rojo); color: var(--rojo-on); border-color: transparent; }
-  label.f { display: block; font-size: 16px; color: var(--texto-suave); margin: 12px 0 4px; }
-  input[type=text], textarea {
-    width: 100%; font: inherit; font-size: 18px; color: var(--texto); background: var(--relleno);
+  .acciones .rojo { background: var(--rojo); color: #FFFFFF; border-color: transparent; }
+  label.f { display: block; font-size: 16px; color: var(--suave); margin: 12px 0 4px; }
+  input[type=text], #hoja textarea {
+    width: 100%; font: inherit; font-size: 18px; color: var(--texto); background: var(--chip);
     border: 1px solid var(--linea); border-radius: 12px; padding: 10px 12px;
   }
-  textarea { resize: vertical; }
-  .err { color: var(--aviso); font-size: 16px; min-height: 0; margin-top: 6px; }
+  .err { color: var(--rojo); font-size: 16px; margin-top: 6px; padding: 0 14px; }
+  #hoja .err { padding: 0; }
   .seg { display: flex; border: 1px solid var(--linea); border-radius: 12px; overflow: hidden; margin-top: 8px; }
   .seg button { flex: 1; min-height: 46px; border: none; background: transparent; color: var(--texto); font-size: 17px; font-weight: 600; cursor: pointer; }
-  .seg button.sel { background: var(--texto); color: var(--fondo); }
-
-  /* Resumen de recorrido */
+  .seg button.sel { background: var(--texto); color: var(--hoja); }
   .cifras { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 16px; margin-top: 10px; }
   .cifra .v { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .cifra .n { font-size: 15px; color: var(--texto-suave); }
+  .cifra .n { font-size: 15px; color: var(--suave); }
   .grafica { width: 100%; height: auto; display: block; margin-top: 4px; }
-  .grafica text { font-family: var(--letra); font-size: 11px; fill: var(--texto-suave); }
-
-  /* Listas */
-  .lista { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-  .item {
-    text-align: left; width: 100%; border: 1px solid var(--linea); background: var(--relleno); color: var(--texto);
-    border-radius: 14px; padding: 12px 14px; cursor: pointer; font-size: 18px; font-weight: 600;
-  }
-  .item .s { display: block; font-size: 15px; font-weight: 500; color: var(--texto-suave); margin-top: 3px; }
-  .item.hecha { opacity: .6; }
-  .vacio { color: var(--texto-suave); font-size: 17px; padding: 14px 0; }
+  .grafica text { font-family: var(--letra); font-size: 11px; fill: var(--suave); }
 
   #aviso-toast {
-    position: fixed; left: 50%; transform: translateX(-50%);
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 120px);
-    background: var(--texto); color: var(--fondo); padding: 10px 16px; border-radius: 12px;
-    font-size: 17px; font-weight: 600; box-shadow: 0 2px 12px rgba(0,0,0,.35); z-index: 5;
+    position: fixed; z-index: 30; left: 50%; transform: translateX(-50%);
+    bottom: calc(var(--m-abajo) + 140px);
+    background: var(--texto); color: var(--hoja); padding: 10px 16px; border-radius: 12px;
+    font-size: 17px; font-weight: 600; box-shadow: 0 2px 12px rgba(0,0,0,.35); max-width: 86vw; text-align: center;
   }
-  #aviso-toast[hidden] { display: none; }
+  body.horiz #aviso-toast { bottom: 24px; }
 
-  @media (prefers-reduced-motion: reduce) { .boton:active, .mini:active { transform: none; } #aguja { transition: none; } }
+  /* ---------- Desplegable de acciones: pestaña plegada y resumen de la salida ---------- */
+  #pestana {
+    position: fixed; z-index: 4; left: 50%; transform: translateX(-50%); bottom: calc(var(--m-abajo) + 6px);
+    min-height: 44px; padding: 0 18px; border: none; border-radius: 16px 16px 12px 12px; background: var(--barra); color: var(--texto);
+    box-shadow: 0 -2px 12px rgba(0,0,0,.28); display: flex; align-items: center; gap: 6px; font-size: 16px; font-weight: 700; cursor: pointer;
+  }
+  #pestana svg { width: 20px; height: 20px; }
+  body.horiz #pestana { left: auto; transform: none; right: calc(var(--m-der) + 6px); bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); border-radius: 14px; }
+  body.horiz.menu-izq #pestana { right: auto; left: calc(var(--m-izq) + 6px); }
+  body.horiz.menu-izq #datos { left: auto; right: 14px; }
+  body.horiz.menu-izq .maplibregl-ctrl-bottom-right { left: auto; right: 222px; }
+  #resumen {
+    position: fixed; z-index: 4; left: 10px; right: 10px; bottom: calc(var(--m-abajo) + 6px); min-height: 52px;
+    padding: 6px 6px 6px 8px; border: none; border-radius: 16px; background: var(--barra); color: var(--texto);
+    box-shadow: 0 -2px 12px rgba(0,0,0,.28); display: flex; align-items: center; gap: 10px; cursor: pointer; text-align: left;
+  }
+  body.horiz #resumen { left: auto; right: calc(var(--m-der) + 6px); bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); width: 176px; flex-direction: column; align-items: stretch; gap: 4px; padding: 8px 10px; }
+  body.horiz.menu-izq #resumen { right: auto; left: calc(var(--m-izq) + 6px); }
+  .res-estado { padding: 4px 10px; border-radius: 999px; font-size: 15px; font-weight: 700; white-space: nowrap; background: var(--rojo); color: #FFFFFF; align-self: center; }
+  .res-estado.pausa { background: var(--ambar); color: #12303B; }
+  .res-v { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  body.horiz .res-v { text-align: center; }
+  .res-abrir { margin-left: auto; width: 40px; height: 40px; border-radius: 12px; background: var(--chip); display: grid; place-items: center; flex: none; }
+  body.horiz .res-abrir { margin: 0 auto; width: 100%; height: 32px; }
+  .res-abrir svg { width: 20px; height: 20px; }
+
+  #panel.desp { height: auto; max-height: calc(100% - var(--m-abajo) - var(--sup) - 60px); }
+  body.horiz #panel.desp { max-height: none; }
+  .ini-caja { padding: 0 14px 10px; }
+  .ini {
+    position: relative; overflow: hidden; width: 100%; min-height: 64px; border: none; border-radius: 18px; color: #FFFFFF;
+    display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; background: var(--verde);
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  }
+  .ini.rojo { background: var(--rojo); }
+  .ini.ambar { background: var(--ambar); color: #12303B; }
+  .ini svg { width: 26px; height: 26px; position: relative; }
+  .ini .ini-t { display: flex; flex-direction: column; align-items: flex-start; position: relative; }
+  .ini b { font-size: 22px; font-weight: 700; }
+  .ini small { font-size: 14px; font-weight: 600; opacity: .9; }
+  .ini .carga { position: absolute; inset: 0; background: rgba(255,255,255,.28); transform: scaleX(0); transform-origin: left; }
+  .ini.manteniendo .carga { transform: scaleX(1); transition: transform .6s linear; }
+  .accion {
+    width: 100%; min-height: 56px; border: none; border-top: 1px solid var(--linea); background: transparent; color: var(--texto);
+    display: flex; align-items: center; gap: 14px; padding: 6px 18px; text-align: left; cursor: pointer;
+  }
+  .accion svg { width: 24px; height: 24px; flex: none; }
+  .accion .t { display: flex; flex-direction: column; }
+  .accion b { font-size: 19px; font-weight: 600; }
+  .accion small { font-size: 14px; color: var(--suave); }
+
+  /* ---------- Bloqueo de toques ---------- */
+  #bloqueo { position: fixed; inset: 0; z-index: 50; touch-action: none; }
+  #bloqueo-msg {
+    position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); padding: 10px 16px 12px; border-radius: 14px;
+    background: rgba(0,0,0,.66); color: #FFFFFF; font-size: 16px; font-weight: 600; text-align: center; width: max-content; max-width: 86vw;
+  }
+  #bloqueo-barra { height: 4px; border-radius: 2px; background: #F0A43A; margin-top: 8px; transform: scaleX(0); transform-origin: left; }
+  #bloqueo.mantiene #bloqueo-barra { transform: scaleX(1); transition: transform 3s linear; }
+  #ind-mano { width: 32px; padding: 0; justify-content: center; cursor: default; }
+  #ind-mano svg { width: 18px; height: 18px; }
+
+
+  /* ---------- Resumen de una salida a pantalla completa (0.2.1, parte 5) ---------- */
+  #res { position: fixed; inset: 0; z-index: 7; background: var(--hoja); color: var(--texto); display: flex; flex-direction: column; }
+  #res-mapa-caja { position: relative; flex: none; height: 42%; background: #C9D3CF; transition: height .22s ease; }
+  #res.grande #res-mapa-caja { height: calc(100% - 184px - env(safe-area-inset-bottom, 0px)); }
+  #res-mapa { position: absolute; inset: 0; }
+  #res-mapa .maplibregl-ctrl-bottom-right { right: 0; bottom: 14px; }
+  body.horiz #res-mapa .maplibregl-ctrl-bottom-right { left: auto; right: 0; bottom: 0; }
+  .res-btn {
+    position: absolute; z-index: 2; top: calc(var(--sup) + 7px); width: 44px; height: 44px; border: none; border-radius: 50%;
+    background: var(--panel); color: var(--texto); box-shadow: 0 2px 10px rgba(0,0,0,.3); display: grid; place-items: center; cursor: pointer;
+  }
+  .res-btn svg { width: 22px; height: 22px; }
+  #res-x { left: 12px; }
+  #res-mas { right: 62px; }
+  #res-chip {
+    position: absolute; z-index: 2; left: 50%; transform: translateX(-50%); bottom: 26px; max-width: calc(100% - 24px);
+    background: var(--texto); color: var(--hoja); padding: 6px 12px; border-radius: 999px; font-size: 15px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; box-shadow: 0 1px 8px rgba(0,0,0,.35); pointer-events: none;
+  }
+  #res-hoja {
+    flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--hoja); position: relative; z-index: 3;
+    border-radius: 18px 18px 0 0; margin-top: -14px; box-shadow: 0 -4px 16px rgba(0,0,0,.25);
+  }
+  .res-cab { flex: none; padding: 0 16px 6px; touch-action: none; cursor: grab; -webkit-user-select: none; user-select: none; }
+  .res-tit { display: flex; align-items: center; gap: 8px; }
+  .res-tit h2 { flex: 1; margin: 0; font-size: 24px; font-weight: 700; overflow-wrap: anywhere; }
+  .res-sub { margin: 2px 0 0; font-size: 15px; color: var(--suave); }
+  .res-cuerpo { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 12px; }
+  .res-cuerpo h3 { font-size: 18px; margin: 16px 0 2px; font-weight: 600; }
+  .res-cuerpo p { font-size: 16px; line-height: 1.4; margin: 6px 0; }
+  .res-cifras { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; }
+  .res-cifras .cifra .v { font-size: 22px; white-space: nowrap; }
+  .res-cifras .cifra .n { font-size: 14px; }
+  .res-corta { background: var(--chip); border: 1px solid var(--linea); border-radius: 14px; padding: 10px 12px; margin-top: 10px; }
+  .res-corta p { margin: 0 !important; font-weight: 600; }
+  .res-corta .acciones { margin-top: 8px; }
+  .res-botones { flex: none; margin: 0 !important; padding: 10px 16px calc(env(safe-area-inset-bottom, 0px) + 10px); border-top: 1px solid var(--linea); background: var(--hoja); }
+  .res-graf svg { touch-action: pan-y; cursor: crosshair; -webkit-user-select: none; user-select: none; }
+  .res-leyenda { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; color: var(--suave); margin-top: 8px; }
+  .res-leyenda span { display: inline-flex; align-items: center; gap: 5px; }
+  .res-leyenda .rm { width: 12px; height: 12px; border-width: 2px; }
+  .res-leyenda .rm-p { font-size: 11px; padding: 0 5px; }
+  .rm { width: 16px; height: 16px; border-radius: 50%; border: 3px solid #FFFFFF; box-shadow: 0 1px 4px rgba(0,0,0,.5); box-sizing: content-box; display: inline-block; }
+  .rm.rm-ini { background: #1F7A45; }
+  .rm.rm-fin { background: #12303B; }
+  .rm.rm-pausa { background: #D98A1E; }
+  .rm.rm-cur { background: #2F7DF6; width: 14px; height: 14px; }
+  .rm-p {
+    display: inline-block; background: #D98A1E; color: #12303B; font-family: var(--letra); font-size: 13px; font-weight: 700;
+    padding: 1px 7px; border-radius: 999px; border: 2px solid #FFFFFF; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,.5);
+  }
+  .accion.borra { color: var(--rojo); }
+  body.horiz #res { flex-direction: row; }
+  body.horiz #res-mapa-caja { height: auto; width: 55%; }
+  body.horiz #res-hoja { margin: 0; border-radius: 0; box-shadow: -4px 0 16px rgba(0,0,0,.25); }
+  body.horiz .res-cab { padding-top: calc(var(--sup) + 12px); padding-right: 64px; cursor: default; }
+  body.horiz #res-mas { right: 12px; }
+  body.con-res #panel, body.con-res #atrapa { z-index: 8; }
+  body.con-res #panel { bottom: 0; }
+  body.con-res #btn-mejoras { right: 14px; }
+  body.con-res.horiz #panel { right: 0; }
+  body.con-res.horiz.menu-izq #panel { left: 0; }
+
+  @media (prefers-reduced-motion: reduce) { #res-mapa-caja { transition: none; } #panel, #aguja, .interruptor, .interruptor::after { transition: none; } .redondo:active { transform: none; } }
 </style>
 </head>
 <body>
 <div id="mapa" aria-label="Mapa"></div>
 
-<div id="estado" aria-live="polite">
-  <span class="chip" id="chip-gps">Buscando GPS…</span>
-  <span class="chip aviso" id="chip-red" hidden>Sin conexión: solo se ve el mapa ya cargado</span>
-  <span class="chip aviso" id="chip-pantalla" hidden>La pantalla puede apagarse</span>
-  <button class="chip" id="chip-vista" hidden></button>
+<div id="indicadores" aria-live="polite">
+  <button class="ind" id="ind-gps" aria-label="Estado del GPS"><span class="pto"></span><span id="ind-gps-t">Buscando GPS…</span></button>
+  <button class="ind sol" id="ind-sol" hidden></button>
+  <button class="ind rojo" id="ind-red" hidden aria-label="Sin conexión">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M12 19h.01M3 3l18 18"/></svg>Sin conexión</button>
+  <span class="ind mal" id="ind-pantalla" hidden><span class="pto"></span>La pantalla puede apagarse</span>
+  <button class="ind" id="ind-vista" hidden></button>
+  <span class="ind" id="ind-mano" role="img" aria-label="Toques bloqueados" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 11V6a1.5 1.5 0 0 1 3 0v4M10 10V4.5a1.5 1.5 0 0 1 3 0V10M13 10V5.5a1.5 1.5 0 0 1 3 0V11M16 11V8a1.5 1.5 0 0 1 3 0v6a7 7 0 0 1-7 7h-1a6 6 0 0 1-4.8-2.4L3.6 15a1.5 1.5 0 0 1 2.3-1.9L7 14.5"/><path d="M3 3l18 18"/></svg></span>
 </div>
 
-<div id="arriba">
-  <button class="mini" id="btn-notas" aria-label="Notas de uso">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4M8 12h8M8 16h6"/></svg>
-  </button>
-  <button class="mini" id="btn-recorridos" aria-label="Mis recorridos">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h6a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h6"/></svg>
-  </button>
-  <button class="mini" id="brujula" aria-label="Poner el mapa al norte y plano" hidden>
-    <svg viewBox="0 0 24 24"><g id="aguja"><path d="M12 2.5 15.5 12h-7z" fill="#C8402B"/><path d="M12 21.5 8.5 12h7z" fill="currentColor" opacity=".55"/></g></svg>
-  </button>
-</div>
+<section id="res" hidden aria-label="Resumen de la salida">
+  <div id="res-mapa-caja">
+    <div id="res-mapa" aria-label="Mapa de la salida"></div>
+    <button class="res-btn" id="res-x" aria-label="Cerrar el resumen (la salida queda guardada)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <button class="res-btn" id="res-mas" aria-label="Más opciones">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+    <div id="res-chip" hidden></div>
+  </div>
+  <div id="res-hoja"></div>
+</section>
 
-<div id="datos">
-  <div class="vel"><span id="velocidad">—</span><span class="unidad">km/h</span></div>
-  <div class="fila"><span class="nombre">Altitud</span><span class="valor" id="altitud">—</span><span class="unidad">m</span></div>
-  <div class="fila" id="fila-grab" hidden><span class="punto"></span><span class="valor" id="g-km">0,0</span><span class="unidad">km</span><span class="valor" id="g-tiempo" style="margin-left:8px">0:00</span></div>
-</div>
+<button id="btn-mejoras" aria-label="Mejoras">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4M8 12h8M8 16h6"/></svg>
+</button>
+<button id="brujula" aria-label="Poner el mapa al norte y plano" hidden>
+  <svg viewBox="0 0 24 24" aria-hidden="true"><g id="aguja"><path d="M12 2.5 15.5 12h-7z" fill="#C8402B"/><path d="M12 21.5 8.5 12h7z" fill="currentColor" opacity=".55"/></g></svg>
+</button>
+
+<div id="datos" role="group" aria-label="Panel de datos. Mantén pulsado para elegir los datos"></div>
+<div id="tinte-noche" aria-hidden="true"></div>
 
 <div id="botones">
-  <button class="boton" id="grabar" aria-label="Grabar recorrido">
-    <svg viewBox="0 0 24 24" id="icono-grabar"><circle cx="12" cy="12" r="7" fill="currentColor"/></svg>
-    <span id="grabar-texto">Grabar</span>
+  <button class="redondo" id="capa" aria-label="Cambiar capa del mapa">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 8l10 5 10-5-10-5ZM2 13l10 5 10-5"/></svg><span id="capa-nombre">Topo</span>
   </button>
-  <button class="boton" id="inclinar" aria-label="Inclinar el mapa">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 5h10l5 14H2z"/><path d="M12 5v14M4.5 12h15"/></svg>
-    <span id="inclinar-texto">Inclinar</span>
+  <button class="redondo" id="inclinar" aria-label="Inclinar el mapa">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 5h10l5 14H2zM12 5v14M4.5 12h15"/></svg><span id="inclinar-texto">Inclinar</span>
   </button>
-  <button class="boton" id="capa" aria-label="Cambiar capa del mapa">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3 2 8l10 5 10-5-10-5Z"/><path d="m2 13 10 5 10-5"/></svg>
-    <span id="capa-nombre">Topo</span>
+  <button class="redondo" id="centrar" aria-label="Centrar el mapa en mi posición">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM12 2v3M12 19v3M2 12h3M19 12h3"/></svg><span>Centrar</span>
   </button>
-  <button class="boton" id="centrar" aria-label="Centrar el mapa en mi posición">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
-    <span>Centrar</span>
+  <button class="redondo gris" id="chincheta" data-fase="5" aria-label="Chincheta (llega en la Fase 5)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6-5.4-6-10a6 6 0 0 1 12 0c0 4.6-6 10-6 10ZM12 8v5M9.5 10.5h5"/></svg><span>Chincheta</span>
   </button>
 </div>
+
+<button id="pestana" aria-label="Abrir acciones">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>Acciones</button>
+<button id="resumen" hidden aria-label="Abrir acciones">
+  <span class="res-estado" id="res-estado">Grabando</span>
+  <span class="res-v" id="res-tiempo">0:00</span>
+  <span class="res-v" id="res-km">0,0 km</span>
+  <span class="res-abrir" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></span>
+</button>
+
+<div id="atrapa" hidden></div>
+<section id="panel" hidden aria-labelledby="panel-titulo">
+  <div class="asa" id="panel-asa"><span></span></div>
+  <div class="pcab" id="panel-cab">
+    <h2 id="panel-titulo"></h2>
+    <button class="redondo-p" id="panel-cerrar" aria-label="Cerrar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+  </div>
+  <div class="pcuerpo" id="panel-cuerpo"></div>
+</section>
+
+<nav id="menu" aria-label="Menú principal">
+  <button id="m-rutas" data-panel="rutas" aria-label="Rutas">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2ZM9 4v14M15 6v14"/></svg><span>Rutas</span></button>
+  <button id="m-sitios" class="gris" data-fase="5" aria-label="Sitios (llega en la Fase 5)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11ZM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/></svg><span>Sitios</span></button>
+  <button id="m-descargas" class="gris" data-fase="4" aria-label="Descargas (llega en la Fase 4)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>Descargas</span></button>
+  <button id="m-ajustes" data-panel="ajustes" aria-label="Ajustes">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8M16 5v4M10 15v4"/></svg><span>Ajustes</span></button>
+</nav>
 
 <div id="velo" hidden></div>
 <div id="hoja" role="dialog" aria-modal="true" hidden></div>
 <div id="aviso-toast" role="status" hidden></div>
+<div id="bloqueo" hidden><div id="bloqueo-msg" hidden>Toques bloqueados. Mantén pulsado 3 s para desbloquear.<div id="bloqueo-barra"></div></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script>
 (function () {
   "use strict";
-  var VERSION_APP = "0.2";
+  var VERSION_APP = "0.2.1";
   var $ = function (s) { return document.querySelector(s); };
+  var $$ = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
 
   // ---------- Utilidades ----------
   function esc(t) { return String(t).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -283,23 +565,120 @@
     var el = $("#aviso-toast"); el.textContent = t; el.hidden = false;
     clearTimeout(temporizadorToast); temporizadorToast = setTimeout(function () { el.hidden = true; }, 2500);
   }
+  // Botones de funciones que aún no existen: en gris, dicen en qué fase llegan
+  function avisoFase(f) { toast(f === "0.2.1" ? "En construcción: llega en esta versión" : "Llega en la Fase " + f); }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-fase]");
+    if (b) { e.stopPropagation(); e.preventDefault(); avisoFase(b.dataset.fase); }
+  }, true);
 
-  // ---------- Hojas (con el gesto de atrás de Android) ----------
+  // ---------- Tema ----------
+  var ajustes = leer("ajustes", { tema: "movil", pantalla: true });
+  function aplicarTema() {
+    if (nocheActiva) document.documentElement.setAttribute("data-tema", "oscuro");   // pantalla nocturna (según el sol)
+    else if (ajustes.tema === "claro" || ajustes.tema === "oscuro") document.documentElement.setAttribute("data-tema", ajustes.tema);
+    else document.documentElement.removeAttribute("data-tema");
+  }
+  aplicarTema();
+  function guardarAjustes() { guardar("ajustes", ajustes); }
+
+  // ---------- Orientación: el menú sigue al borde de abajo del móvil ----------
+  // Vertical: abajo. Girado a la izquierda (ángulo 90): el borde de abajo queda a la derecha.
+  // Girado a la derecha (ángulo 270): queda a la izquierda. (Suposición a comprobar en el móvil.)
+  function orientar() {
+    var horiz = window.innerWidth > window.innerHeight;
+    var ang = (screen.orientation && typeof screen.orientation.angle === "number") ? screen.orientation.angle : (window.orientation || 0);
+    document.body.classList.toggle("horiz", horiz);
+    document.body.classList.toggle("menu-izq", horiz && (ang === 270 || ang === -90));
+    if (typeof mapa !== "undefined") setTimeout(function () { mapa.resize(); if (res && res.mapa) res.mapa.resize(); }, 50);
+  }
+  window.addEventListener("resize", orientar);
+  if (screen.orientation) screen.orientation.addEventListener("change", orientar);
+  orientar();
+
+  // ---------- Capas de pantalla: hojas (confirmaciones) y paneles (menú), con el gesto de atrás ----------
   var pantalla = "Mapa";
-  var hojaAbierta = false;
+  var hojaAbierta = false, panelAbierto = null;
   function abrirHoja(html, nombre, alAbrir) {
     var h = $("#hoja");
     h.innerHTML = html; h.hidden = false; $("#velo").hidden = false; h.scrollTop = 0;
-    pantalla = nombre;
-    if (!hojaAbierta) { history.pushState({ hoja: true }, ""); hojaAbierta = true; }
+    if (!hojaAbierta) { history.pushState({ capa: "hoja" }, ""); hojaAbierta = true; }
+    h.dataset.nombre = nombre;
     if (alAbrir) alAbrir(h);
   }
-  function quitarHoja() { $("#hoja").hidden = true; $("#velo").hidden = true; $("#hoja").innerHTML = ""; hojaAbierta = false; pantalla = "Mapa"; }
+  function quitarHoja() { $("#hoja").hidden = true; $("#velo").hidden = true; $("#hoja").innerHTML = ""; hojaAbierta = false; }
   function cerrarHoja() { if (hojaAbierta) history.back(); }
-  window.addEventListener("popstate", function () { if (hojaAbierta) quitarHoja(); });
-  $("#velo").addEventListener("click", cerrarHoja);
 
-  // ---------- Base de datos del móvil (recorridos) ----------
+  var X_CERRAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+  var X_PLEGAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+  function abrirPanel(id, titulo, html, alAbrir) {
+    var p = $("#panel"), desp = id === "acciones";
+    $("#panel-titulo").textContent = titulo;
+    p.classList.toggle("desp", desp);
+    $("#panel-cerrar").innerHTML = desp ? X_PLEGAR : X_CERRAR;
+    $("#panel-cerrar").setAttribute("aria-label", desp ? "Plegar acciones" : "Cerrar");
+    $("#panel-cuerpo").innerHTML = html; $("#panel-cuerpo").scrollTop = 0;
+    if (!panelAbierto) { history.pushState({ capa: "panel" }, ""); p.classList.remove("completo"); }
+    panelAbierto = id; pantalla = titulo;
+    // El desplegable de acciones deja el mapa vivo y solo se pliega cuando lo cierras
+    p.hidden = false; $("#atrapa").hidden = desp;
+    $$("#menu [data-panel]").forEach(function (b) { b.setAttribute("aria-current", b.dataset.panel === id ? "true" : "false"); });
+    if (alAbrir) alAbrir($("#panel-cuerpo"));
+    pintarAbajo();
+  }
+  function repintarPanel(html, alAbrir) { $("#panel-cuerpo").innerHTML = html; if (alAbrir) alAbrir($("#panel-cuerpo")); }
+  function quitarPanel() {
+    $("#panel").hidden = true; $("#atrapa").hidden = true; $("#panel-cuerpo").innerHTML = "";
+    panelAbierto = null; pantalla = resAbierto ? "Resumen de salida" : "Mapa";
+    $$("#menu [data-panel]").forEach(function (b) { b.setAttribute("aria-current", "false"); });
+    pintarAbajo();
+  }
+  function cerrarPanel() { if (panelAbierto && !hojaAbierta) history.back(); }
+  // Orden de las capas: resumen (abajo) → panel → hoja (arriba). Atrás quita la de arriba.
+  var resAbierto = false, trasAtras = null;
+  window.addEventListener("popstate", function () {
+    if (hojaAbierta) quitarHoja();
+    else if (panelAbierto) quitarPanel();
+    else if (resAbierto) quitarResumen();
+    if (trasAtras) { var f = trasAtras; trasAtras = null; setTimeout(f, 0); }
+  });
+  // Cierra todas las capas abiertas, una a una, y después sigue con cb
+  function desenrollar(cb) {
+    if (hojaAbierta || panelAbierto || resAbierto) { trasAtras = function () { desenrollar(cb); }; history.back(); }
+    else cb();
+  }
+  $("#velo").addEventListener("click", cerrarHoja);
+  // Tocar el mapa con un panel abierto: el primer toque solo cierra
+  $("#atrapa").addEventListener("pointerdown", function (e) { e.preventDefault(); cerrarPanel(); });
+  $("#panel-cerrar").addEventListener("click", cerrarPanel);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") { if (hojaAbierta) cerrarHoja(); else if (panelAbierto) cerrarPanel(); else if (resAbierto) cerrarResumen(); } });
+
+  // Estirar a pantalla completa o cerrar deslizando hacia el menú
+  (function () {
+    var ini = null;
+    function eje(e) {
+      var b = document.body;
+      if (!b.classList.contains("horiz")) return e.clientY - ini.y;          // + = hacia el menú (abajo)
+      return b.classList.contains("menu-izq") ? ini.x - e.clientX : e.clientX - ini.x; // + = hacia el menú
+    }
+    function bajar(e) { if (e.target.closest("button")) return; ini = { x: e.clientX, y: e.clientY, t: Date.now() }; e.currentTarget.setPointerCapture(e.pointerId); }
+    function soltar(e) {
+      if (!ini) return;
+      var d = eje(e), p = $("#panel"), corto = Math.abs(d) < 8 && Date.now() - ini.t < 400;
+      ini = null;
+      if (corto) { p.classList.toggle("completo"); return; }
+      if (d < -40) p.classList.add("completo");
+      else if (d > 60) { if (p.classList.contains("completo")) p.classList.remove("completo"); else cerrarPanel(); }
+    }
+    ["#panel-asa", "#panel-cab"].forEach(function (s) {
+      var el = $(s);
+      el.addEventListener("pointerdown", bajar);
+      el.addEventListener("pointerup", soltar);
+      el.addEventListener("pointercancel", function () { ini = null; });
+    });
+  })();
+
+  // ---------- Base de datos del móvil (salidas; en la 0.2 se llamaban «recorridos») ----------
   var bd = null;
   function abrirBD() {
     return new Promise(function (ok, mal) {
@@ -333,17 +712,30 @@
     });
   }
 
-  // ---------- Cálculo de un recorrido (el mismo para grabar y para ver) ----------
+  // ---------- Cálculo de una salida (el mismo para grabar y para ver) ----------
   // Estimaciones mías, a revisar con pruebas reales:
   var UMBRAL_DESNIVEL = 5;   // m: cambios de altitud (ya suavizada) menores no cuentan
   var PRECISION_MAX = 50;    // m: puntos peores no cuentan para distancia ni altitud
   var VEL_MOVIMIENTO = 3;    // km/h: por debajo se considera parado
   var HUECO_SEG = 60;        // s: más tiempo sin puntos = hueco (pantalla apagada, sin GPS)
+  var MOV_1MIN = 15;         // m: si en el último minuto me he desplazado más, cuenta como en movimiento (provisional)
+  var PARADA_MIN = 480;      // s: una parada cuenta en el resumen si dura MÁS de 8 min seguidos (elegido por Alejandro)
   function Calculo() {
     this.dist = 0; this.tMov = 0; this.vmax = 0; this.altMin = null; this.altMax = null;
     this.subida = 0; this.bajada = 0; this.inicio = null; this.fin = null; this.huecos = 0;
-    this.ancla = null; this.prev = null; this.altRef = null; this.ventana = []; this.serie = [];
+    this.ancla = null; this.prev = null; this.altRef = null; this.ventana = []; this.serie = []; this.min = [];
+    this.paradas = []; this.parIni = null; this.parSeg = 0; this.parPos = null;
   }
+  // Cierra la parada en curso: cuenta si dura más de PARADA_MIN. Las pausas cortan la parada y no cuentan.
+  Calculo.prototype.cerrarParada = function () {
+    if (this.parIni !== null && this.parSeg > PARADA_MIN) this.paradas.push({ ini: this.parIni, seg: this.parSeg, lng: this.parPos.lng, lat: this.parPos.lat });
+    this.parIni = null; this.parSeg = 0; this.parPos = null;
+  };
+  // Desplazamiento desde el punto bueno de hace ~1 minuto (mismo criterio que el dato «Mov. 1 min»)
+  Calculo.prototype.desp1min = function (p) {
+    for (var k = this.min.length - 1; k >= 0; k--) if (p.t - this.min[k].t >= 55000) return distancia(this.min[k], p);
+    return null;
+  };
   Calculo.prototype.add = function (p) {
     if (this.inicio === null) this.inicio = p.t;
     this.fin = p.t;
@@ -351,7 +743,6 @@
     if (buena && p.alt !== null) {
       if (this.altMin === null || p.alt < this.altMin) this.altMin = p.alt;
       if (this.altMax === null || p.alt > this.altMax) this.altMax = p.alt;
-      // Media de las últimas altitudes para quitar el temblor del GPS
       this.ventana.push(p.alt); if (this.ventana.length > 10) this.ventana.shift();
       var media = this.ventana.reduce(function (s, v) { return s + v; }, 0) / this.ventana.length;
       if (this.altRef === null) this.altRef = media;
@@ -363,35 +754,56 @@
     }
     var kmh = p.vel !== null ? p.vel * 3.6 : null;
     if (kmh !== null && p.acc <= 25 && kmh > this.vmax) this.vmax = kmh;
-    if (this.prev && p.seg === this.prev.seg) {
+    // Parado o en movimiento: ≥ 3 km/h, o más de 15 m de desplazamiento en el último minuto.
+    // Huecos (otro tramo o más de 60 s sin puntos): en movimiento si en línea recta van a más de 3 km/h.
+    if (this.prev) {
       var dt = (p.t - this.prev.t) / 1000;
-      if (dt > 0 && dt <= HUECO_SEG) {
-        var v = kmh !== null ? kmh : distancia(this.prev, p) / dt * 3.6;
-        if (v >= VEL_MOVIMIENTO) this.tMov += dt;
+      var tramoNuevo = p.seg !== this.prev.seg;
+      if (dt > 0 && tramoNuevo && p.tras === "pausa") this.cerrarParada();
+      else if (dt > 0) {
+        var mueve;
+        if (tramoNuevo || dt > HUECO_SEG) {
+          mueve = distancia(this.prev, p) / dt * 3.6 > VEL_MOVIMIENTO;
+        } else {
+          var v = kmh !== null ? kmh : distancia(this.prev, p) / dt * 3.6;
+          var dm = buena ? this.desp1min(p) : null;
+          mueve = v >= VEL_MOVIMIENTO || (dm !== null && dm > MOV_1MIN);
+        }
+        if (mueve) { this.tMov += dt; this.cerrarParada(); }
+        else {
+          if (this.parIni === null) { this.parIni = this.prev.t; this.parPos = this.prev; }
+          this.parSeg += dt;
+        }
       }
+    }
+    if (buena) {
+      if (this.prev && p.seg !== this.prev.seg) this.min = [];
+      this.min.push(p);
+      while (this.min.length && p.t - this.min[0].t > 70000) this.min.shift();
     }
     if (buena) {
       if (!this.ancla) this.ancla = p;
       else {
         var d = distancia(this.ancla, p);
         var hueco = p.seg !== this.ancla.seg;
-        if (hueco || d >= Math.max(5, p.acc) || (kmh !== null && kmh >= VEL_MOVIMIENTO && d >= 2)) {
+        if (hueco && p.tras === "pausa") this.ancla = p;     // tras una pausa: ni distancia ni hueco
+        else if (hueco || d >= Math.max(5, p.acc) || (kmh !== null && kmh >= VEL_MOVIMIENTO && d >= 2)) {
           this.dist += d; if (hueco) this.huecos++;
           this.ancla = p;
         }
       }
-      this.serie.push([this.dist, kmh, p.alt]);
+      this.serie.push([this.dist, kmh, p.alt, p.lng, p.lat, p.t]);
     }
     this.prev = p;
   };
-  function calcular(puntos) { var c = new Calculo(); puntos.forEach(function (p) { c.add(p); }); return c; }
+  function calcular(puntos) { var c = new Calculo(); puntos.forEach(function (p) { c.add(p); }); c.cerrarParada(); return c; }
 
   function lineaDe(puntos) {
     var tramos = [], huecos = [], actual = null, ultimo = null;
     puntos.forEach(function (p) {
       if (p.acc > PRECISION_MAX) return;
       if (!actual || p.seg !== ultimo.seg) {
-        if (ultimo) huecos.push([[ultimo.lng, ultimo.lat], [p.lng, p.lat]]);
+        if (ultimo && p.tras !== "pausa") huecos.push([[ultimo.lng, ultimo.lat], [p.lng, p.lat]]);
         actual = []; tramos.push(actual);
       }
       actual.push([p.lng, p.lat]); ultimo = p;
@@ -428,7 +840,6 @@
   fuentes.traza = { type: "geojson", data: vacio };
   fuentes.yo = { type: "geojson", data: vacio };
   capas.push({ id: "vista-borde", type: "line", source: "vista", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#FFFFFF", "line-width": 8, "line-opacity": 0.8 } });
-  // Los huecos (tramos sin puntos) van con línea discontinua
   var ES_HUECO = ["==", ["get", "hueco"], 1], NO_HUECO = ["==", ["get", "hueco"], 0];
   capas.push({ id: "vista", type: "line", source: "vista", filter: NO_HUECO, layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#C2185B", "line-width": 5 } });
   capas.push({ id: "vista-hueco", type: "line", source: "vista", filter: ES_HUECO, paint: { "line-color": "#C2185B", "line-width": 5, "line-dasharray": [1, 1.5] } });
@@ -446,11 +857,12 @@
     maxZoom: 19, maxPitch: INCLINACION, attributionControl: false
   });
   mapa.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+  // La cita empieza plegada (botón «i») para no tapar el panel de datos
+  mapa.once("load", function () { var a = document.querySelector(".maplibregl-ctrl-attrib"); if (a) a.classList.remove("maplibregl-compact-show"); });
   mapa.on("moveend", function () {
     var c = mapa.getCenter();
     guardar("vista", { centro: [c.lng, c.lat], zoom: mapa.getZoom(), rumbo: mapa.getBearing() });
   });
-  // Listo en cuanto está montado el mapa, sin esperar a que bajen todas las imágenes
   var mapaListo = new Promise(function (ok) { mapa.once("style.load", ok); });
 
   // ---------- Capa ----------
@@ -478,7 +890,6 @@
   }
   $("#inclinar").addEventListener("click", function () { ponerInclinado(!inclinado); });
   mapaListo.then(function () { if (inclinado) mapa.jumpTo({ pitch: INCLINACION, padding: relleno() }); pintarInclinar(); pintarBrujula(); });
-  // Si se inclina o se pone plano con dos dedos, el botón se entera
   mapa.on("pitchend", function () {
     var ahora = mapa.getPitch() > 10;
     if (ahora !== inclinado) { inclinado = ahora; guardar("inclinado", ahora); pintarInclinar(); mapa.easeTo({ padding: relleno(), duration: 300 }); }
@@ -493,13 +904,13 @@
   mapa.on("pitch", pintarBrujula);
   $("#brujula").addEventListener("click", function () {
     inclinado = false; guardar("inclinado", false); pintarInclinar();
-    mapa.easeTo({ bearing: 0, pitch: 0, padding: relleno(), duration: 500 });
+    if (seguir) norteArriba = true;   // siguiendo: norte arriba sin dejar de seguir (Centrar vuelve a girar)
+    mapa.easeTo({ bearing: 0, pitch: 0, padding: seguir && ultima ? rellenoSeguir() : relleno(), duration: 500 });
   });
 
   // ---------- Posición GPS ----------
-  var chipGps = $("#chip-gps"), botonCentrar = $("#centrar");
-  var seguir = true, primeraVez = true, ultima = null;
-
+  var indGps = $("#ind-gps"), indGpsT = $("#ind-gps-t"), botonCentrar = $("#centrar");
+  var seguir = true, primeraVez = true, ultima = null, ultimaSol = false;
   function circulo(lng, lat, metros) {
     var pts = [], n = 48, dLat = metros / 111320, dLng = metros / (111320 * Math.cos(lat * Math.PI / 180));
     for (var i = 0; i <= n; i++) { var a = (i / n) * 2 * Math.PI; pts.push([lng + dLng * Math.cos(a), lat + dLat * Math.sin(a)]); }
@@ -511,72 +922,216 @@
       { type: "Feature", properties: { tipo: "precision" }, geometry: { type: "Polygon", coordinates: [circulo(lng, lat, Math.max(p.coords.accuracy, 1))] } },
       { type: "Feature", properties: { tipo: "punto" }, geometry: { type: "Point", coordinates: [lng, lat] } }
     ]});
-    if (primeraVez) { primeraVez = false; mapa.jumpTo({ center: [lng, lat], zoom: Math.max(mapa.getZoom(), 15), padding: relleno() }); }
-    else if (seguir) mapa.easeTo({ center: [lng, lat], padding: relleno(), duration: 600 });
+    if (primeraVez) { primeraVez = false; mapa.jumpTo({ center: [lng, lat], zoom: Math.max(mapa.getZoom(), 15), padding: rellenoSeguir() }); }
+    else if (seguir) moverCamara(p, false);
+  }
+
+  // ---------- Centrado en marcha (0.2.1, parte 4) ----------
+  // Zoom según la velocidad: ver por delante 1,5–2 minutos de camino (franjas a ajustar con salidas reales)
+  var FRANJAS = [15, 35, 60, 90], ZOOMS = [17, 16, 15, 14.5, 14];
+  var MARGEN_FRANJA = 2;          // km/h: cerca del límite se queda en la franja en la que estaba
+  var ESPERA_ZOOM = 5000;         // ms en la nueva franja antes de cambiar el zoom
+  var VELOC_ZOOM = 1 / 1.5;       // niveles de zoom por segundo (un nivel tarda ~1,5 s)
+  var RECENTRAR_MS = 15000;       // con salida en marcha y moviéndome, se recentra solo a los 15 s
+  var franja = null, franjaCand = null, franjaDesde = 0;
+  var zoomFijo = false;           // he pellizcado siguiendo: mi zoom manda hasta pulsar Centrar
+  var norteArriba = false;        // he tocado la brújula siguiendo: norte arriba hasta pulsar Centrar
+  var rumboUlt = null, posRumbo = null, tCamara = 0, ultimoToque = 0, dedos = 0, saltoPendiente = false;
+  function kmhDe(p) {
+    var c = p.coords;
+    if (c.speed !== null && !isNaN(c.speed)) return c.speed * 3.6;
+    return null;
+  }
+  function indiceFranja(v) { var i = 0; while (i < FRANJAS.length && v >= FRANJAS[i]) i++; return i; }
+  function franjaPara(v) {
+    var i = indiceFranja(v);
+    if (franja !== null && franja !== i && indiceFranja(v - MARGEN_FRANJA) <= franja && indiceFranja(v + MARGEN_FRANJA) >= franja) return franja;
+    return i;
+  }
+  // Relleno para que mi punto quede al 70 % de la altura del mapa visible (60 % en horizontal), sin contar el menú
+  function rellenoSeguir() {
+    var cont = mapa.getContainer(), h = cont.clientHeight, w = cont.clientWidth;
+    var m = $("#menu").getBoundingClientRect(), horiz = document.body.classList.contains("horiz");
+    var abajo = 0, izq = 0, der = 0;
+    if (!horiz) abajo = Math.max(0, h - m.top);
+    else if (document.body.classList.contains("menu-izq")) izq = Math.max(0, m.right);
+    else der = Math.max(0, w - m.left);
+    var pos = horiz ? 0.6 : 0.7, visible = h - abajo;
+    return { top: Math.round((2 * pos - 1) * visible), bottom: Math.round(abajo), left: Math.round(izq), right: Math.round(der) };
+  }
+  function moverCamara(p, ya) {
+    if (dedos > 0) return;   // no pelear con los dedos mientras toco el mapa
+    if (saltoPendiente) { ya = true; saltoPendiente = false; }
+    var c = p.coords, ahora = Date.now(), v = kmhDe(p);
+    var dt = tCamara ? Math.min(1500, Math.max(300, ahora - tCamara)) : 600;
+    tCamara = ahora;
+    // Rumbo: del GPS a partir de 3 km/h; si no lo da, de lo recorrido. Parado: el último.
+    if (v !== null && v >= VEL_MOVIMIENTO) {
+      if (c.heading !== null && !isNaN(c.heading)) rumboUlt = c.heading;
+      else if (posRumbo && distancia(posRumbo, { lat: c.latitude, lng: c.longitude }) >= 5) rumboUlt = rumboEntre(posRumbo, { lat: c.latitude, lng: c.longitude });
+    }
+    if (!posRumbo || distancia(posRumbo, { lat: c.latitude, lng: c.longitude }) >= 5) posRumbo = { lat: c.latitude, lng: c.longitude };
+    // Zoom: solo cambia tras ESPERA_ZOOM en la nueva franja; parado no cambia
+    var zoomAct = mapa.getZoom(), zoom = zoomAct;
+    if (!zoomFijo && v !== null && v >= VEL_MOVIMIENTO) {
+      var i = franjaPara(v);
+      if (franja === null) franja = i;
+      else if (i !== franja) {
+        if (franjaCand !== i) { franjaCand = i; franjaDesde = ahora; }
+        else if (ahora - franjaDesde >= ESPERA_ZOOM) { franja = i; franjaCand = null; }
+      } else franjaCand = null;
+    }
+    if (!zoomFijo && franja !== null) {
+      var obj = ZOOMS[franja], paso = VELOC_ZOOM * dt / 1000;
+      zoom = Math.abs(obj - zoomAct) <= paso ? obj : zoomAct + (obj > zoomAct ? paso : -paso);
+      if (ya) zoom = obj;
+    }
+    var op = { center: [c.longitude, c.latitude], zoom: zoom, padding: rellenoSeguir(), duration: ya ? 600 : dt };
+    if (!ya) op.easing = function (t) { return t; };   // lineal: una animación empalma con la siguiente sin tirones
+    if (norteArriba) op.bearing = 0;
+    else if (rumboUlt !== null) op.bearing = rumboUlt;
+    mapa.easeTo(op);
+  }
+  function rumboEntre(a, b) {
+    var f1 = a.lat * Math.PI / 180, f2 = b.lat * Math.PI / 180, dl = (b.lng - a.lng) * Math.PI / 180;
+    var y = Math.sin(dl) * Math.cos(f2), x = Math.cos(f1) * Math.sin(f2) - Math.sin(f1) * Math.cos(f2) * Math.cos(dl);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  }
+  function soltarMapa() { seguir = false; botonCentrar.classList.add("suelto"); ultimoToque = Date.now(); zoomAlrededor(false); }
+  function centrar(sinMover) {
+    seguir = true; zoomFijo = false; norteArriba = false; franjaCand = null; tCamara = 0;
+    botonCentrar.classList.remove("suelto"); zoomAlrededor(true);
+    if (!ultima) return;
+    var v = kmhDe(ultima);
+    if (v !== null && v >= VEL_MOVIMIENTO) franja = franjaPara(v);
+    else { franja = null; if (mapa.getZoom() < 15) mapa.jumpTo({ zoom: 15 }); }
+    if (sinMover) saltoPendiente = true; else moverCamara(ultima, true);
+  }
+  function ponerGps(texto, estado) {
+    indGpsT.textContent = texto;
+    indGps.classList.toggle("mal", estado === "mal");
+    indGps.classList.toggle("rojo", estado === "rojo");
   }
   function enPosicion(p) {
     ultima = p;
     var c = p.coords;
-    chipGps.textContent = "GPS ±" + Math.round(c.accuracy) + " m";
-    chipGps.classList.toggle("aviso", c.accuracy > 50);
-    $("#velocidad").textContent = (c.speed === null || isNaN(c.speed)) ? "—" : Math.round(c.speed * 3.6);
-    $("#altitud").textContent = (c.altitude === null || isNaN(c.altitude)) ? "—" : Math.round(c.altitude);
+    vigilarGps(p);
+    if (!ultimaSol) { ultimaSol = true; setTimeout(revisarSol, 0); }
+    if (gps.perdido) ponerGps("Sin GPS (±" + Math.round(c.accuracy) + " m)", "rojo");
+    else ponerGps("GPS ±" + Math.round(c.accuracy) + " m", c.accuracy > PRECISION_MAX ? "mal" : "bien");
+    actualizarVivo(p);
+    if (!seguir && grab && !grab.pausa && dedos === 0 && Date.now() - ultimoToque >= RECENTRAR_MS) {
+      var v = kmhDe(p); if (v !== null && v >= VEL_MOVIMIENTO) centrar(true);
+    }
     mapaListo.then(function () { pintarPosicion(p); });
-    if (grab) anotarPunto(p);
+    if (grab && !grab.pausa) anotarPunto(p);
+    pintarPanelDatos();
   }
   function enError(e) {
-    chipGps.classList.add("aviso");
-    if (e.code === 1) chipGps.textContent = "Sin permiso de ubicación: actívalo para esta web en Chrome";
-    else if (e.code === 3) chipGps.textContent = "El GPS tarda en responder…";
-    else chipGps.textContent = "No se obtiene la posición";
+    if (e.code === 1) ponerGps("Sin permiso de ubicación: actívalo para esta web en Chrome", "rojo");
+    else if (e.code === 3) { if (!gps.perdido) ponerGps("El GPS tarda en responder…", "mal"); }
+    else ponerGps("Sin GPS", "rojo");
   }
   if ("geolocation" in navigator) navigator.geolocation.watchPosition(enPosicion, enError, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
-  else { chipGps.textContent = "Este navegador no da la posición"; chipGps.classList.add("aviso"); }
+  else ponerGps("Este navegador no da la posición", "rojo");
 
-  mapa.on("dragstart", function () { seguir = false; botonCentrar.classList.add("suelto"); });
-  botonCentrar.addEventListener("click", function () {
-    seguir = true; botonCentrar.classList.remove("suelto");
-    if (ultima) mapa.easeTo({ center: [ultima.coords.longitude, ultima.coords.latitude], zoom: Math.max(mapa.getZoom(), 15), padding: relleno(), duration: 600 });
+  // Arrastrar con un dedo (o el ratón) deja de seguir; pellizcar con dos dedos hace zoom sin dejar de seguir
+  mapa.on("dragstart", function (e) {
+    var oe = e && e.originalEvent;
+    if (oe && oe.touches && oe.touches.length >= 2) return;
+    soltarMapa();
   });
+  // Zoom hecho por mí (dos dedos, rueda o doble toque) mientras sigue: se queda fijo hasta pulsar Centrar
+  function zoomManual() { if (seguir) zoomFijo = true; }
+  (function () {
+    var lienzo = mapa.getCanvasContainer();
+    lienzo.addEventListener("wheel", zoomManual, { passive: true });
+    lienzo.addEventListener("dblclick", zoomManual);
+    lienzo.addEventListener("pointerdown", function () { dedos++; ultimoToque = Date.now(); if (dedos >= 2) zoomManual(); });
+    ["pointerup", "pointercancel"].forEach(function (ev) {
+      lienzo.addEventListener(ev, function () { dedos = Math.max(0, dedos - 1); ultimoToque = Date.now(); });
+    });
+    window.addEventListener("blur", function () { dedos = 0; });
+  })();
+  // Siguiendo, el zoom con dedos o rueda se hace alrededor de mi punto; suelto, alrededor de los dedos
+  var zoomEnCentro = null;
+  function zoomAlrededor(centro) {
+    if (zoomEnCentro === centro) return; zoomEnCentro = centro;
+    var o = centro ? { around: "center" } : undefined;
+    mapa.touchZoomRotate.disable(); mapa.touchZoomRotate.enable(o);
+    mapa.scrollZoom.disable(); mapa.scrollZoom.enable(o);
+  }
+  zoomAlrededor(true);
+  botonCentrar.addEventListener("click", function () { centrar(); });
 
-  // ---------- Grabación ----------
-  var grab = null;      // { rec, calc, puntos }
+  // ---------- Grabación: Iniciar, pausa y terminar (desde el desplegable de acciones) ----------
+  var grab = null;      // { rec, calc, puntos, pausa, tras }
   var relojGrab = null;
   function pintarGrabar() {
-    var b = $("#grabar");
-    b.classList.toggle("activo", !!grab);
-    $("#grabar-texto").textContent = grab ? "Parar" : "Grabar";
-    $("#icono-grabar").innerHTML = grab ? '<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/>' : '<circle cx="12" cy="12" r="7" fill="currentColor"/>';
-    b.setAttribute("aria-label", grab ? "Parar la grabación" : "Grabar recorrido");
-    $("#fila-grab").hidden = !grab;
-    pintarDatosGrab();
+    pintarDatosGrab(); pintarAbajo(); pintarPanelDatos(); if (panelAbierto === "acciones") pintarAcciones();
   }
   function pintarDatosGrab() {
     if (!grab) return;
-    $("#g-km").textContent = km(grab.calc.dist);
-    $("#g-tiempo").textContent = duracion((Date.now() - grab.rec.inicio) / 1000);
+    var t = duracion((Date.now() - grab.rec.inicio) / 1000);
+    $("#res-tiempo").textContent = t;
+    $("#res-km").textContent = km(grab.calc.dist) + " km";
+  }
+  // Abajo: pestaña «Acciones» sin salida; resumen pequeño con salida. Ocultos con un panel abierto.
+  function pintarAbajo() {
+    var con = !!grab;
+    $("#pestana").hidden = con || !!panelAbierto;
+    $("#resumen").hidden = !con || !!panelAbierto;
+    if (con) {
+      var e = $("#res-estado");
+      e.textContent = grab.pausa ? "En pausa" : "Grabando";
+      e.classList.toggle("pausa", grab.pausa);
+      $("#resumen").setAttribute("aria-label", (grab.pausa ? "Salida en pausa" : "Grabando") + ". Abrir acciones");
+    }
+  }
+  function pausar() {
+    if (!grab || grab.pausa) return;
+    grab.pausa = true; grab.rec.estado = "pausa";
+    (grab.rec.pausas = grab.rec.pausas || []).push({ ini: Date.now(), fin: null });
+    guardarRec(grab.rec); pintarGrabar(); toast("En pausa");
+  }
+  function reanudar() {
+    if (!grab || !grab.pausa) return;
+    grab.pausa = false; grab.rec.estado = "grabando";
+    var ps = grab.rec.pausas || [], u = ps[ps.length - 1]; if (u && !u.fin) u.fin = Date.now();
+    grab.rec.seg++; grab.tras = "pausa";
+    guardarRec(grab.rec); pintarGrabar(); toast("Grabando");
+    if (ultima && Date.now() - ultima.timestamp < 10000) anotarPunto(ultima);
+  }
+  function confirmarTerminar() {
+    if (!grab) return;
+    abrirHoja('<h2>¿Terminar la salida?</h2><p>Llevas ' + km(grab.calc.dist) + ' km en ' + duracion((Date.now() - grab.rec.inicio) / 1000) + (grab.pausa ? ' (ahora en pausa)' : '') + '.</p>' +
+      '<div class="acciones"><button id="seguir">' + (grab.pausa ? "Dejar en pausa" : "Seguir grabando") + '</button><button class="rojo" id="terminar">Terminar</button></div>', "Terminar salida", function () {
+      $("#seguir").onclick = cerrarHoja;
+      $("#terminar").onclick = function () { cerrarHoja(); setTimeout(terminarGrabacion, 60); };
+    });
   }
   function pintarTraza() { mapaListo.then(function () { mapa.getSource("traza").setData(grab ? lineaDe(grab.puntos) : vacio); }); }
-
   function anotarPunto(pos) {
     var c = pos.coords, ult = grab.puntos[grab.puntos.length - 1];
     var t = pos.timestamp || Date.now();
-    if (ult && t - ult.t > HUECO_SEG * 1000) { grab.rec.seg++; guardarRec(grab.rec); }
+    if (!grab.tras && ult && t - ult.t > HUECO_SEG * 1000) { grab.rec.seg++; guardarRec(grab.rec); }
     var p = { rec: grab.rec.id, t: t, lat: c.latitude, lng: c.longitude,
       alt: (c.altitude === null || isNaN(c.altitude)) ? null : c.altitude,
       acc: c.accuracy, vel: (c.speed === null || isNaN(c.speed)) ? null : c.speed, seg: grab.rec.seg };
+    if (grab.tras) { p.tras = grab.tras; grab.tras = null; }
     grab.puntos.push(p); grab.calc.add(p);
     guardarPunto(p).catch(function () { toast("No se pudo guardar un punto"); });
     pintarTraza(); pintarDatosGrab();
   }
   function empezarGrabacion(rec, puntos) {
-    grab = { rec: rec, puntos: puntos || [], calc: calcular(puntos || []) };
+    grab = { rec: rec, puntos: puntos || [], calc: calcular(puntos || []), pausa: rec.estado === "pausa", tras: null };
     clearInterval(relojGrab); relojGrab = setInterval(pintarDatosGrab, 1000);
     pintarGrabar(); pintarTraza();
   }
   function nuevaGrabacion() {
+    if (!bd) { toast("Todavía no está lista la memoria del móvil. Prueba otra vez."); return; }
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
-    var rec = { id: "r" + Date.now(), nombre: "", inicio: Date.now(), fin: null, estado: "grabando", seg: 0 };
+    var rec = { id: "r" + Date.now(), nombre: "", inicio: Date.now(), fin: null, estado: "grabando", seg: 0, pausas: [] };
     guardarRec(rec).then(function () {
       empezarGrabacion(rec, []);
       toast("Grabando");
@@ -585,240 +1140,1159 @@
   }
   function nombrePorDefecto(ms) {
     var d = new Date(ms);
-    return "Recorrido del " + d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" }) + ", " + d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+    return "Salida del " + d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" }) + ", " + d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
   }
   function terminarGrabacion() {
     var g = grab; if (!g) return;
     grab = null; clearInterval(relojGrab);
+    var ps = g.rec.pausas || [], u = ps[ps.length - 1]; if (u && !u.fin) u.fin = Date.now();
     g.rec.estado = "terminado"; g.rec.fin = g.calc.fin || Date.now();
     g.rec.nombre = g.rec.nombre || nombrePorDefecto(g.rec.inicio);
     pintarGrabar(); pintarTraza();
     guardarRec(g.rec).then(function () { verResumen(g.rec, g.puntos, true); });
   }
-  $("#grabar").addEventListener("click", function () {
-    if (!bd) { toast("Todavía no está lista la memoria del móvil. Prueba otra vez."); return; }
-    if (!grab) { nuevaGrabacion(); return; }
-    abrirHoja('<h2>¿Terminar la grabación?</h2><p>Llevas ' + km(grab.calc.dist) + ' km en ' + duracion((Date.now() - grab.rec.inicio) / 1000) + '.</p>' +
-      '<div class="acciones"><button id="seguir">Seguir grabando</button><button class="rojo" id="terminar">Terminar</button></div>', "Terminar grabación", function () {
-      $("#seguir").onclick = cerrarHoja;
-      $("#terminar").onclick = terminarGrabacion;
-    });
-  });
 
-  // ---------- Resumen de un recorrido ----------
-  function grafica(serie, indice, unidad, color) {
+  // ---------- Resumen de una salida a pantalla completa (0.2.1, parte 5) ----------
+  // Mapa arriba con la salida (inicio, fin, paradas de más de 8 min, pausas y huecos); debajo datos y gráficas.
+  // La salida ya está guardada al terminarla: «Guardar» y atrás solo cierran.
+  var CORTA_M = 200, CORTA_S = 120;   // salida muy corta: menos de 200 m o de 2 min (estimación)
+  var res = null;
+  var GW = 300, GX0 = 34, GY0 = 6, GY1 = 84;   // medidas de las gráficas (en su propia escala)
+  var ICR = {
+    lapiz: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4ZM14 6l4 4"/></svg>',
+    mapa: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2ZM9 4v14M15 6v14"/></svg>',
+    copiar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></svg>',
+    ruta: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM18 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM8 17h6a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h6"/></svg>',
+    papelera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>'
+  };
+  function minutos(seg) {
+    var m = Math.round(seg / 60);
+    return m < 60 ? m + " min" : Math.floor(m / 60) + " h " + String(m % 60).padStart(2, "0");
+  }
+  function fechaLarga(ms) { return new Date(ms).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short", year: "numeric" }); }
+  function enPausa(rec) { return (rec.pausas || []).reduce(function (s, p) { return s + ((p.fin || rec.fin || Date.now()) - p.ini) / 1000; }, 0); }
+  function cifrasRes(rec, c) {
+    var total = ((rec.fin || c.fin || rec.inicio) - rec.inicio) / 1000, pausa = enPausa(rec);
+    return {
+      total: total, pausa: pausa, parado: Math.max(0, total - c.tMov - pausa),
+      vmedia: c.tMov > 0 ? (c.dist / c.tMov) * 3.6 : 0,
+      tParadas: c.paradas.reduce(function (s, p) { return s + p.seg; }, 0)
+    };
+  }
+
+  // Gráfica de velocidad (indice 1) o altitud (2) según los km. Todas usan la misma escala de km para enlazarlas.
+  function grafica(serie, indice, unidad, color, dMax) {
     var pts = serie.filter(function (s) { return s[indice] !== null && s[indice] !== undefined; });
-    if (pts.length < 2) return '<p class="pista">Sin datos suficientes.</p>';
+    if (pts.length < 2 || !dMax) return '<p class="pista">Sin datos suficientes.</p>';
     var paso = Math.max(1, Math.ceil(pts.length / 300));
     pts = pts.filter(function (s, i) { return i % paso === 0 || i === pts.length - 1; });
-    var dMax = pts[pts.length - 1][0] || 1, vMin = Infinity, vMax = -Infinity;
+    var vMin = Infinity, vMax = -Infinity;
     pts.forEach(function (s) { vMin = Math.min(vMin, s[indice]); vMax = Math.max(vMax, s[indice]); });
     if (indice === 1) vMin = 0;
     if (vMax - vMin < 1) vMax = vMin + 1;
-    var W = 300, H = 100, x0 = 34, y0 = 6, y1 = 84;
     var linea = pts.map(function (s) {
-      var x = x0 + (s[0] / dMax) * (W - x0 - 4), y = y1 - ((s[indice] - vMin) / (vMax - vMin)) * (y1 - y0);
+      var x = GX0 + (s[0] / dMax) * (GW - GX0 - 4), y = GY1 - ((s[indice] - vMin) / (vMax - vMin)) * (GY1 - GY0);
       return x.toFixed(1) + "," + y.toFixed(1);
     }).join(" ");
-    return '<svg class="grafica" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Gráfica de ' + unidad + '">' +
-      '<line x1="' + x0 + '" y1="' + y1 + '" x2="' + (W - 4) + '" y2="' + y1 + '" stroke="currentColor" stroke-opacity=".2"/>' +
+    return '<div class="res-graf"><svg class="grafica" data-i="' + indice + '" data-min="' + vMin + '" data-max="' + vMax + '" viewBox="0 0 ' + GW + ' 100" role="img" aria-label="Gráfica de ' + unidad + '. Toca o arrastra para ver ese punto en el mapa">' +
+      '<line x1="' + GX0 + '" y1="' + GY1 + '" x2="' + (GW - 4) + '" y2="' + GY1 + '" stroke="currentColor" stroke-opacity=".2"/>' +
       '<polyline points="' + linea + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round"/>' +
-      '<text x="' + (x0 - 4) + '" y="' + (y0 + 8) + '" text-anchor="end">' + Math.round(vMax) + '</text>' +
-      '<text x="' + (x0 - 4) + '" y="' + y1 + '" text-anchor="end">' + Math.round(vMin) + '</text>' +
-      '<text x="' + x0 + '" y="98">0 km</text><text x="' + (W - 4) + '" y="98" text-anchor="end">' + km(dMax) + ' km</text></svg>';
+      '<text x="' + (GX0 - 4) + '" y="' + (GY0 + 8) + '" text-anchor="end">' + Math.round(vMax) + '</text>' +
+      '<text x="' + (GX0 - 4) + '" y="' + GY1 + '" text-anchor="end">' + Math.round(vMin) + '</text>' +
+      '<text x="' + GX0 + '" y="98">0 km</text><text x="' + (GW - 4) + '" y="98" text-anchor="end">' + km(dMax) + ' km</text>' +
+      '<g class="g-cursor" visibility="hidden"><line y1="' + GY0 + '" y2="' + GY1 + '" stroke="currentColor" stroke-opacity=".6" stroke-width="1"/>' +
+      '<circle r="3.5" fill="' + color + '" stroke="#FFFFFF" stroke-width="1.5"/></g></svg></div>';
   }
-  function verResumen(rec, puntos, recien) {
-    var c = calcular(puntos);
-    var total = ((rec.fin || c.fin || rec.inicio) - rec.inicio) / 1000;
-    var vmedia = c.tMov > 0 ? (c.dist / c.tMov) * 3.6 : 0;
+
+  function verResumen(rec, puntos, recien, origen) {
+    desenrollar(function () { abrirResumen(rec, puntos, recien, origen || ""); });
+  }
+  function abrirResumen(rec, puntos, recien, origen) {
+    res = { rec: rec, puntos: puntos, c: calcular(puntos), recien: recien, origen: origen, mapa: null, cursor: null, irMapa: false };
+    resAbierto = true; history.pushState({ capa: "resumen" }, "");
+    document.body.classList.add("con-res"); pantalla = "Resumen de salida";
+    var r = $("#res"); r.classList.remove("grande"); r.hidden = false; $("#res-chip").hidden = true;
+    pintarHojaRes();
+    try { crearMapaRes(); } catch (e) { $("#res-mapa").innerHTML = '<p class="pista" style="padding:70px 16px 0">No se pudo dibujar el mapa.</p>'; }
+    if (recien && !$("#res-corta")) toast("Salida guardada");
+  }
+  function quitarResumen() {
+    var r = res; res = null; resAbierto = false;
+    $("#res").hidden = true; $("#res-hoja").innerHTML = ""; $("#res-chip").hidden = true;
+    document.body.classList.remove("con-res"); pantalla = "Mapa";
+    if (r && r.mapa) { try { r.mapa.remove(); } catch (e) {} }
+    $("#res-mapa").innerHTML = "";
+    if (!r) return;
+    if (r.irMapa) setTimeout(function () { verEnMapa(r.rec, r.puntos); }, 60);
+    else if (r.origen === "lista") setTimeout(pintarRutas, 0);
+  }
+  function cerrarResumen() { desenrollar(function () {}); }
+
+  function pintarHojaRes() {
+    var rec = res.rec, c = res.c, k = cifrasRes(rec, c);
     var cifra = function (v, n) { return '<div class="cifra"><div class="v">' + v + '</div><div class="n">' + n + '</div></div>'; };
-    var html = '<div class="cab"><h2>' + (recien ? "Recorrido guardado" : "Recorrido") + '</h2><button class="cerrar" id="cx" aria-label="Cerrar">×</button></div>' +
-      '<p class="pista">' + fechaHora(rec.inicio) + '</p>' +
-      '<label class="f" for="nom">Nombre</label><input type="text" id="nom" value="' + esc(rec.nombre) + '">' +
-      '<div class="cifras">' +
-        cifra(km(c.dist) + " km", "Distancia") +
-        cifra(duracion(total), "Tiempo total") +
-        cifra(duracion(c.tMov), "En movimiento") +
-        cifra(Math.round(vmedia) + " km/h", "Velocidad media en movimiento") +
-        cifra(Math.round(c.vmax) + " km/h", "Velocidad máxima") +
-        cifra(c.altMin === null ? "—" : Math.round(c.altMin) + "–" + Math.round(c.altMax) + " m", "Altitud mínima y máxima") +
-        cifra("+" + Math.round(c.subida) + " m", "Desnivel de subida") +
-        cifra("−" + Math.round(c.bajada) + " m", "Desnivel de bajada") +
+    var corta = res.recien && (c.dist < CORTA_M || k.total < CORTA_S);
+    var dMax = c.serie.length ? c.serie[c.serie.length - 1][0] : 0;
+    var pausas = puntosPausa(res.puntos).length;
+    var ley = '<span><i class="rm rm-ini"></i>Inicio</span><span><i class="rm rm-fin"></i>Fin</span>' +
+      (c.paradas.length ? '<span><i class="rm-p">P</i>Parada de más de 8 min</span>' : '') +
+      (pausas ? '<span><i class="rm rm-pausa"></i>Pausa</span>' : '') +
+      (c.huecos ? '<span>- - - Hueco sin puntos</span>' : '');
+    var html =
+      '<div class="res-cab" id="res-cab"><div class="asa"><span></span></div>' +
+        '<div class="res-tit"><h2 id="res-nombre">' + esc(rec.nombre) + '</h2><button class="redondo-p" id="res-lapiz" aria-label="Renombrar">' + ICR.lapiz + '</button></div>' +
+        '<p class="res-sub">' + fechaLarga(rec.inicio) + ' · ' + horaCorta(rec.inicio) + ' – ' + horaCorta(rec.fin || c.fin || rec.inicio) + ' · Salida libre</p>' +
       '</div>' +
-      (c.huecos ? '<p class="pista">Hay ' + c.huecos + (c.huecos === 1 ? ' hueco' : ' huecos') + ' sin puntos (pantalla apagada o sin GPS): se cuentan en línea recta y en el mapa salen con línea discontinua.</p>' : '') +
-      '<h3>Velocidad (km/h)</h3>' + grafica(c.serie, 1, "velocidad", "#2F7DF6") +
-      '<h3>Altitud (m)</h3>' + grafica(c.serie, 2, "altitud", "#D98A1E") +
-      '<p class="pista">La altitud y el desnivel salen del GPS y son orientativos.</p>' +
-      '<div class="err" id="err"></div>' +
-      '<div class="acciones"><button id="ver">Ver en el mapa</button><button class="ok" id="ok">Guardar nombre</button></div>' +
-      '<div class="acciones"><button class="peligro" id="borrar">Borrar recorrido</button></div>';
-    abrirHoja(html, "Resumen de recorrido", function () {
-      $("#cx").onclick = cerrarHoja;
-      $("#ok").onclick = function () {
-        var n = $("#nom").value.trim();
-        if (!n) { $("#err").textContent = "Ponle un nombre antes de guardar."; return; }
-        rec.nombre = n; guardarRec(rec).then(function () { toast("Nombre guardado"); cerrarHoja(); });
-      };
-      $("#ver").onclick = function () { cerrarHoja(); setTimeout(function () { verEnMapa(rec, puntos); }, 50); };
-      $("#borrar").onclick = function () {
-        abrirHoja('<h2>¿Borrar «' + esc(rec.nombre) + '»?</h2><p>Se borra del móvil y no se puede recuperar.</p><div class="acciones"><button id="no">Cancelar</button><button class="rojo" id="si">Borrar</button></div>', "Borrar recorrido", function () {
-          $("#no").onclick = cerrarHoja;
-          $("#si").onclick = function () {
-            borrarRec(rec.id).then(function () { if (vistaId === rec.id) quitarVista(); toast("Recorrido borrado"); cerrarHoja(); });
-          };
-        });
-      };
+      '<div class="res-cuerpo" id="res-cuerpo">' +
+        (corta ? '<div class="res-corta" id="res-corta"><p>Salida muy corta (menos de 200 m o 2 min). ¿Guardarla?</p>' +
+          '<div class="acciones"><button class="ok" id="corta-si">Guardar</button><button class="peligro" id="corta-no">Borrar</button></div></div>' : '') +
+        '<div class="cifras res-cifras">' +
+          cifra(km(c.dist) + " km", "Distancia") +
+          cifra(duracion(k.total), "Tiempo total") +
+          cifra(duracion(c.tMov), "En movimiento") +
+          cifra(duracion(k.parado), "Parado") +
+          (k.pausa ? cifra(duracion(k.pausa), "En pausa") : "") +
+          cifra(Math.round(k.vmedia) + " km/h", "V. media (en mov.)") +
+          cifra(Math.round(c.vmax) + " km/h", "V. máxima") +
+          cifra((Math.round(c.subida) ? "+" : "") + Math.round(c.subida) + " m", "Subida") +
+          cifra((Math.round(c.bajada) ? "−" : "") + Math.round(c.bajada) + " m", "Bajada") +
+          cifra(c.altMin === null ? "—" : Math.round(c.altMin) + "–" + Math.round(c.altMax), "Altitud (m)") +
+          cifra(c.paradas.length ? c.paradas.length + " · " + minutos(k.tParadas) : "0", "Paradas &gt; 8 min") +
+        '</div>' +
+        '<div class="res-leyenda">' + ley + '</div>' +
+        (c.huecos ? '<p class="pista">Hay ' + c.huecos + (c.huecos === 1 ? ' hueco' : ' huecos') + ' sin puntos (pantalla apagada o sin GPS): se cuentan en línea recta y en el mapa salen con línea discontinua.</p>' : '') +
+        '<h3>Velocidad (km/h)</h3>' + grafica(c.serie, 1, "velocidad", "#2F7DF6", dMax) +
+        '<h3>Altitud (m)</h3>' + grafica(c.serie, 2, "altitud", "#D98A1E", dMax) +
+        '<p class="pista">Toca o arrastra el dedo sobre una gráfica para ver ese punto en el mapa. La altitud y el desnivel salen del GPS y son orientativos.</p>' +
+      '</div>' +
+      '<div class="acciones res-botones"><button class="ok" id="res-guardar">Guardar</button>' +
+        '<button class="gris" data-fase="5" id="res-exportar" aria-label="Exportar (llega en la Fase 5)">Exportar</button>' +
+        '<button class="peligro" id="res-borrar">Borrar</button></div>';
+    $("#res-hoja").innerHTML = html;
+    $("#res-lapiz").onclick = renombrarRes;
+    $("#res-guardar").onclick = function () { cerrarResumen(); };
+    $("#res-borrar").onclick = borrarRes;
+    if (corta) {
+      $("#corta-si").onclick = function () { $("#res-corta").remove(); toast("Salida guardada"); };
+      $("#corta-no").onclick = borrarRes;
+    }
+    $$("#res-hoja svg[data-i]").forEach(engancharGrafica);
+    gestosCabRes();
+  }
+
+  // ---------- Mapa del resumen ----------
+  function puntosPausa(puntos) {   // último punto antes de cada pausa
+    var r = [];
+    for (var i = 1; i < puntos.length; i++) if (puntos[i].tras === "pausa") r.push(puntos[i - 1]);
+    return r;
+  }
+  function marcaRes(m, clase, contenido, lnglat, etiqueta) {
+    var el = document.createElement("div");
+    el.className = clase; el.innerHTML = contenido || "";
+    var mk = new maplibregl.Marker({ element: el }).setLngLat(lnglat).addTo(m);
+    el.setAttribute("role", "img"); el.setAttribute("aria-label", etiqueta);   // después: MapLibre pone «Map marker»
+    return mk;
+  }
+  function crearMapaRes() {
+    var puntos = res.puntos, c = res.c, capa = CAPAS[capaActual];
+    var buenos = puntos.filter(function (p) { return p.acc <= PRECISION_MAX; });
+    var f = {
+      fondo: { type: "raster", tiles: [capa.url], tileSize: 256, maxzoom: capa.maxzoom, attribution: CITA },
+      sal: { type: "geojson", data: lineaDe(puntos) }
+    };
+    var l = [
+      { id: "fondo", type: "raster", source: "fondo" },
+      { id: "sal-borde", type: "line", source: "sal", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#FFFFFF", "line-width": 8, "line-opacity": 0.8 } },
+      { id: "sal", type: "line", source: "sal", filter: NO_HUECO, layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#C2185B", "line-width": 5 } },
+      { id: "sal-hueco", type: "line", source: "sal", filter: ES_HUECO, paint: { "line-color": "#C2185B", "line-width": 5, "line-dasharray": [1, 1.5] } }
+    ];
+    var op = { container: "res-mapa", style: { version: 8, sources: f, layers: l }, maxZoom: 19, attributionControl: false, dragRotate: false, pitchWithRotate: false };
+    var b = new maplibregl.LngLatBounds();
+    buenos.forEach(function (p) { b.extend([p.lng, p.lat]); });
+    if (buenos.length) { op.bounds = b; op.fitBoundsOptions = { padding: { top: 64, bottom: 40, left: 36, right: 36 }, maxZoom: 16 }; }
+    else { op.center = vista.centro; op.zoom = vista.zoom; }
+    var m = new maplibregl.Map(op);
+    res.mapa = m;
+    m.touchZoomRotate.disableRotation();
+    m.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+    m.once("load", function () { var a = $("#res-mapa .maplibregl-ctrl-attrib"); if (a) a.classList.remove("maplibregl-compact-show"); });
+    puntosPausa(puntos).forEach(function (p) { marcaRes(m, "rm rm-pausa", "", [p.lng, p.lat], "Pausa a las " + horaCorta(p.t)); });
+    c.paradas.forEach(function (p) { marcaRes(m, "rm-p", "P · " + minutos(p.seg), [p.lng, p.lat], "Parada de " + minutos(p.seg) + " a las " + horaCorta(p.ini)); });
+    if (buenos.length) {
+      var a = buenos[0], z = buenos[buenos.length - 1];
+      marcaRes(m, "rm rm-fin", "", [z.lng, z.lat], "Fin a las " + horaCorta(z.t));
+      marcaRes(m, "rm rm-ini", "", [a.lng, a.lat], "Inicio a las " + horaCorta(a.t));
+    }
+    // Tocar cerca del trazado: muestra ese punto (como en las gráficas)
+    m.on("click", function (e) {
+      var s = res && res.c.serie, mejor = -1, dMin = 30 * 30;
+      if (!s) return;
+      for (var i = 0; i < s.length; i++) {
+        var q = m.project([s[i][3], s[i][4]]), dx = q.x - e.point.x, dy = q.y - e.point.y, d = dx * dx + dy * dy;
+        if (d < dMin) { dMin = d; mejor = i; }
+      }
+      if (mejor >= 0) ponerCursor(mejor, false);
     });
   }
 
-  // ---------- Ver un recorrido en el mapa ----------
+  // ---------- Gráficas enlazadas con el mapa ----------
+  function indicePorDist(d) {   // punto de la serie más cercano a esos metros (la distancia solo crece)
+    var s = res.c.serie, lo = 0, hi = s.length - 1;
+    while (lo < hi) { var mid = (lo + hi) >> 1; if (s[mid][0] < d) lo = mid + 1; else hi = mid; }
+    if (lo > 0 && Math.abs(s[lo - 1][0] - d) <= Math.abs(s[lo][0] - d)) lo--;
+    return lo;
+  }
+  function engancharGrafica(svg) {
+    var activo = false;
+    function aPunto(e) {
+      if (!res || !res.c.serie.length) return;
+      var r = svg.getBoundingClientRect(), vx = (e.clientX - r.left) / r.width * GW;
+      var dMax = res.c.serie[res.c.serie.length - 1][0];
+      var f = Math.min(1, Math.max(0, (vx - GX0) / (GW - GX0 - 4)));
+      ponerCursor(indicePorDist(f * dMax), true);
+    }
+    svg.addEventListener("pointerdown", function (e) { activo = true; aPunto(e); });
+    svg.addEventListener("pointermove", function (e) { if (activo || e.pointerType === "mouse" && e.buttons) aPunto(e); });
+    ["pointerup", "pointercancel", "pointerleave"].forEach(function (ev) { svg.addEventListener(ev, function () { activo = false; }); });
+  }
+  function ponerCursor(i, mover) {
+    if (!res) return;
+    var s = res.c.serie[i]; if (!s) return;
+    var dMax = res.c.serie[res.c.serie.length - 1][0] || 1;
+    var x = GX0 + (s[0] / dMax) * (GW - GX0 - 4);
+    $$("#res-hoja svg[data-i]").forEach(function (svg) {
+      var g = svg.querySelector(".g-cursor"), idx = +svg.dataset.i, v = s[idx];
+      var ln = g.querySelector("line"), ci = g.querySelector("circle");
+      ln.setAttribute("x1", x); ln.setAttribute("x2", x);
+      if (v === null || v === undefined) ci.setAttribute("visibility", "hidden");
+      else {
+        var mn = +svg.dataset.min, mx = +svg.dataset.max;
+        var y = GY1 - ((Math.min(mx, Math.max(mn, v)) - mn) / (mx - mn)) * (GY1 - GY0);
+        ci.setAttribute("cx", x); ci.setAttribute("cy", y.toFixed(1)); ci.setAttribute("visibility", "visible");
+      }
+      g.setAttribute("visibility", "visible");
+    });
+    var chip = $("#res-chip");
+    chip.textContent = "Km " + km(s[0]) + " · " + (s[1] === null ? "—" : Math.round(s[1])) + " km/h · " +
+      (s[2] === null || s[2] === undefined ? "—" : Math.round(s[2])) + " m · " + horaCorta(s[5]);
+    chip.hidden = false;
+    var m = res.mapa; if (!m) return;
+    if (!res.cursor) {
+      var el = document.createElement("div"); el.className = "rm rm-cur"; el.setAttribute("aria-hidden", "true");
+      res.cursor = new maplibregl.Marker({ element: el }).setLngLat([s[3], s[4]]).addTo(m);
+    } else res.cursor.setLngLat([s[3], s[4]]);
+    if (mover && !m.getBounds().contains([s[3], s[4]])) m.panTo([s[3], s[4]], { duration: 300 });
+  }
+
+  // ---------- Mapa grande: deslizar la cabecera hacia abajo (y hacia arriba para volver) ----------
+  function gestosCabRes() {
+    var cab = $("#res-cab"), ini = null;
+    function ajustar() { setTimeout(function () { if (res && res.mapa) res.mapa.resize(); }, 260); }
+    cab.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("button") || document.body.classList.contains("horiz")) return;
+      ini = { y: e.clientY, t: Date.now() }; cab.setPointerCapture(e.pointerId);
+    });
+    cab.addEventListener("pointerup", function (e) {
+      if (!ini) return;
+      var d = e.clientY - ini.y, corto = Math.abs(d) < 8 && Date.now() - ini.t < 400, r = $("#res");
+      ini = null;
+      if (corto) r.classList.toggle("grande");
+      else if (d > 50) r.classList.add("grande");
+      else if (d < -40) r.classList.remove("grande");
+      else return;
+      ajustar();
+    });
+    cab.addEventListener("pointercancel", function () { ini = null; });
+  }
+
+  // ---------- Opciones: renombrar, borrar, copiar, menú ⋯ ----------
+  function renombrarRes() {
+    var rec = res.rec;
+    abrirHoja('<h2>Renombrar salida</h2><label class="f" for="nom">Nombre</label><input type="text" id="nom" value="' + esc(rec.nombre) + '">' +
+      '<div class="err" id="err"></div><div class="acciones"><button id="no">Cancelar</button><button class="ok" id="si">Guardar</button></div>', "Renombrar salida", function () {
+      $("#no").onclick = cerrarHoja;
+      $("#si").onclick = function () {
+        var n = $("#nom").value.trim();
+        if (!n) { $("#err").textContent = "Ponle un nombre."; return; }
+        rec.nombre = n;
+        guardarRec(rec).then(function () {
+          if (res && res.rec === rec) $("#res-nombre").textContent = n;
+          if (vistaId === rec.id) $("#ind-vista").textContent = "Viendo: " + n + "  ✕";
+          toast("Nombre guardado"); cerrarHoja();
+        }).catch(function () { $("#err").textContent = "No se pudo guardar el nombre."; });
+      };
+    });
+  }
+  function borrarRes() {
+    var rec = res.rec;
+    abrirHoja('<h2>¿Borrar «' + esc(rec.nombre) + '»?</h2><p>Se borra del móvil y no se puede recuperar.</p>' +
+      '<div class="acciones"><button id="no">Cancelar</button><button class="rojo" id="si">Borrar</button></div>', "Borrar salida", function () {
+      $("#no").onclick = cerrarHoja;
+      $("#si").onclick = function () {
+        borrarRec(rec.id).then(function () {
+          if (vistaId === rec.id) quitarVista();
+          delete cacheCifras[rec.id];
+          toast("Salida borrada"); cerrarResumen();
+        }).catch(function () { toast("No se pudo borrar la salida"); });
+      };
+    });
+  }
+  function textoRes() {
+    var rec = res.rec, c = res.c, k = cifrasRes(rec, c);
+    var t = [rec.nombre, fechaLarga(rec.inicio) + ", " + horaCorta(rec.inicio) + " – " + horaCorta(rec.fin || c.fin || rec.inicio),
+      "Distancia: " + km(c.dist) + " km",
+      "Tiempo: " + duracion(k.total) + " (en movimiento " + duracion(c.tMov) + ", parado " + duracion(k.parado) + (k.pausa ? ", en pausa " + duracion(k.pausa) : "") + ")",
+      "Velocidad media en movimiento: " + Math.round(k.vmedia) + " km/h · máxima: " + Math.round(c.vmax) + " km/h",
+      "Desnivel: +" + Math.round(c.subida) + " m / −" + Math.round(c.bajada) + " m (orientativo)",
+      "Paradas de más de 8 min: " + (c.paradas.length ? c.paradas.length + " (" + minutos(k.tParadas) + ")" : "ninguna")];
+    return t.join("\n");
+  }
+  function copiarTexto(t) {
+    function aMano() {
+      var a = document.createElement("textarea"); a.value = t; a.setAttribute("readonly", ""); a.style.position = "fixed"; a.style.opacity = "0";
+      document.body.appendChild(a); a.select(); var ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+      a.remove(); return ok ? Promise.resolve() : Promise.reject();
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t).catch(aMano);
+    return aMano();
+  }
+  function menuRes() {
+    var fila = function (id, icono, titulo, sub, extra) {
+      return '<button class="accion' + (extra || "") + '"' + (id ? ' id="' + id + '"' : '') + '>' + icono + '<span class="t"><b>' + titulo + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span></button>';
+    };
+    abrirHoja('<div class="cab"><h2>Opciones</h2><button class="cerrar" id="cx" aria-label="Cerrar">×</button></div>' +
+      fila("o-ren", ICR.lapiz, "Renombrar") +
+      fila("o-ver", ICR.mapa, "Ver en el mapa principal", "Cierra el resumen y deja la salida dibujada en el mapa") +
+      fila("o-copiar", ICR.copiar, "Copiar resumen en texto", "Para pegarlo en WhatsApp u otra app") +
+      fila("", ICR.ruta, "Guardar como ruta nueva", "Llega en la Fase 3", ' gris" data-fase="3') +
+      fila("o-borrar", ICR.papelera, "Borrar salida", "", " borra"), "Opciones del resumen", function () {
+      $("#cx").onclick = cerrarHoja;
+      $("#o-ren").onclick = renombrarRes;
+      $("#o-borrar").onclick = borrarRes;
+      $("#o-ver").onclick = function () { res.irMapa = true; cerrarResumen(); };
+      $("#o-copiar").onclick = function () {
+        copiarTexto(textoRes()).then(function () { toast("Resumen copiado"); }, function () { toast("No se pudo copiar"); });
+        cerrarHoja();
+      };
+    });
+  }
+  $("#res-x").addEventListener("click", cerrarResumen);
+  $("#res-mas").addEventListener("click", menuRes);
+
+  // ---------- Ver una salida en el mapa ----------
   var vistaId = null;
   function verEnMapa(rec, puntos) {
     vistaId = rec.id;
     mapa.getSource("vista").setData(lineaDe(puntos));
     var b = new maplibregl.LngLatBounds(), alguno = false;
     puntos.forEach(function (p) { if (p.acc <= PRECISION_MAX) { b.extend([p.lng, p.lat]); alguno = true; } });
-    if (alguno) { seguir = false; botonCentrar.classList.add("suelto"); mapa.fitBounds(b, { padding: 60, maxZoom: 16, duration: 600 }); }
-    var ch = $("#chip-vista"); ch.hidden = false; ch.textContent = "Viendo: " + rec.nombre + "  ✕";
+    if (alguno) { soltarMapa(); mapa.fitBounds(b, { padding: 60, maxZoom: 16, duration: 600 }); }
+    var ch = $("#ind-vista"); ch.hidden = false; ch.textContent = "Viendo: " + rec.nombre + "  ✕";
     ch.setAttribute("aria-label", "Quitar del mapa " + rec.nombre);
   }
-  function quitarVista() { vistaId = null; mapa.getSource("vista").setData(vacio); $("#chip-vista").hidden = true; }
-  $("#chip-vista").addEventListener("click", quitarVista);
+  function quitarVista() { vistaId = null; mapa.getSource("vista").setData(vacio); $("#ind-vista").hidden = true; }
+  $("#ind-vista").addEventListener("click", quitarVista);
 
-  // ---------- Mis recorridos ----------
-  function abrirRecorridos() {
-    if (!bd) { toast("Todavía no está lista la memoria del móvil."); return; }
+  // ---------- Panel Rutas (pestañas Rutas / Salidas / Quiero ir) ----------
+  var pestanaRutas = leer("pestanaRutas", "salidas");
+  var cacheCifras = {};   // cifras de cada salida, calculadas al abrir la lista
+  function pintarRutas() {
+    var tabs = [["rutas", "Rutas"], ["salidas", "Salidas"], ["quiero", "Quiero ir"]];
+    var cab = '<div class="pestanas" role="tablist">' + tabs.map(function (t) {
+      return '<button role="tab" data-tab="' + t[0] + '" aria-selected="' + (pestanaRutas === t[0]) + '">' + t[1] + '</button>';
+    }).join("") + '</div>';
+    function enganchar(cuerpo) {
+      $$("[data-tab]").forEach(function (b) { b.onclick = function () { pestanaRutas = b.dataset.tab; guardar("pestanaRutas", pestanaRutas); pintarRutas(); }; });
+    }
+    if (pestanaRutas === "rutas") {
+      repintarOAbrir(cab + '<div class="vacio">Aquí estarán las rutas que prepares o importes. Crear, importar y navegar rutas llega en la Fase 3.</div>', enganchar);
+      return;
+    }
+    if (pestanaRutas === "quiero") {
+      repintarOAbrir(cab + '<div class="vacio">Aquí irán los sitios que quieras visitar para preparar rutas. Llega más adelante, con la preparación de rutas.</div>', enganchar);
+      return;
+    }
+    if (!bd) { repintarOAbrir(cab + '<div class="vacio">Todavía no está lista la memoria del móvil. Vuelve a abrir el panel en un momento.</div>', enganchar); return; }
     todosRec().then(function (lista) {
       lista = lista.filter(function (r) { return r.estado === "terminado"; }).sort(function (a, b) { return b.inicio - a.inicio; });
-      var html = '<div class="cab"><h2>Mis recorridos</h2><button class="cerrar" id="cx" aria-label="Cerrar">×</button></div>' +
-        '<p class="pista">Guardados en este móvil. Si borras los datos de Chrome, se pierden (el guardado en Drive llegará en la Fase 8).</p>' +
-        '<div class="lista">' + (lista.length ? lista.map(function (r) {
-          return '<button class="item" data-r="' + r.id + '">' + esc(r.nombre) + '<span class="s">' + fechaHora(r.inicio) + (r.fin ? ", " + duracion((r.fin - r.inicio) / 1000) : "") + '</span></button>';
-        }).join("") : '<div class="vacio">Todavía no hay recorridos. Pulsa Grabar en el mapa para empezar el primero.</div>') + '</div>';
-      abrirHoja(html, "Mis recorridos", function () {
-        $("#cx").onclick = cerrarHoja;
-        document.querySelectorAll("[data-r]").forEach(function (b) {
+      var html = cab + (lista.length ? lista.map(function (r) {
+        return '<button class="fila-lista" data-r="' + r.id + '"><span class="t"><span class="n">' + esc(r.nombre) + '</span><span class="s" id="cf-' + r.id + '">' + fechaHora(r.inicio) + (cacheCifras[r.id] || "") + '</span></span></button>';
+      }).join("") : '<div class="vacio">Todavía no hay salidas. Las salidas se inician desde Acciones, abajo en el mapa.</div>') +
+        '<div class="vacio" style="font-size:14px">Guardadas en este móvil. Si borras los datos de Chrome, se pierden (el guardado en Drive llega en la Fase 8).</div>';
+      repintarOAbrir(html, function (cuerpo) {
+        enganchar(cuerpo);
+        $$("[data-r]").forEach(function (b) {
           b.onclick = function () {
             var rec = lista.filter(function (r) { return r.id === b.dataset.r; })[0];
-            puntosDe(rec.id).then(function (pts) { pts.sort(function (a, c) { return a.t - c.t; }); verResumen(rec, pts, false); });
+            puntosDe(rec.id).then(function (pts) { pts.sort(function (a, c) { return a.t - c.t; }); verResumen(rec, pts, false, "lista"); });
           };
+        });
+        // Cifras de cada fila (km, tiempo, desnivel), una a una para no bloquear
+        lista.forEach(function (r) {
+          if (cacheCifras[r.id]) return;
+          puntosDe(r.id).then(function (pts) {
+            pts.sort(function (a, c) { return a.t - c.t; });
+            var c = calcular(pts), tot = ((r.fin || c.fin || r.inicio) - r.inicio) / 1000;
+            cacheCifras[r.id] = ", " + km(c.dist) + " km, " + duracion(tot) + ", +" + Math.round(c.subida) + " m";
+            var el = document.getElementById("cf-" + r.id); if (el) el.textContent = fechaHora(r.inicio) + cacheCifras[r.id];
+          });
         });
       });
     });
   }
-  $("#btn-recorridos").addEventListener("click", abrirRecorridos);
+  function repintarOAbrir(html, alAbrir) {
+    if (panelAbierto === "rutas") repintarPanel(html, alAbrir); else abrirPanel("rutas", "Rutas", html, alAbrir);
+  }
 
-  // ---------- Notas de uso ----------
+  // ---------- Panel Ajustes ----------
+  function filaAj(texto, valor, attrs) { return '<button class="ajuste" ' + (attrs || "") + '><span>' + texto + '</span><span class="v">' + valor + '</span></button>'; }
+  function filaGris(texto, fase, valor) { return '<button class="ajuste gris" data-fase="' + fase + '"><span>' + texto + '</span><span class="v">' + (valor || "") + '</span></button>'; }
+  function interruptor(si) { return '<span class="interruptor' + (si ? " si" : "") + '" aria-hidden="true"></span>'; }
+  var TEMAS = { movil: "Seguir al móvil", claro: "Claro", oscuro: "Oscuro" };
+  function abrirAjustes() {
+    var html =
+      '<div class="grupo">Mapa y navegación</div>' +
+      filaGris("Aviso de salirse de la ruta", "3", "50 m") +
+      filaGris("Voz de los avisos", "3") +
+      filaGris("Distancia del aviso de restricciones", "5") +
+      filaGris("Avisar si el mapa descargado es antiguo", "4") +
+      '<div class="grupo">Pantalla</div>' +
+      filaAj("Tema", TEMAS[ajustes.tema] || TEMAS.movil, 'id="aj-tema"') +
+      '<button class="ajuste" id="aj-noche" role="switch" aria-checked="' + (ajustes.nocturna !== false) + '"><span>Pantalla nocturna automática (según el sol)</span>' + interruptor(ajustes.nocturna !== false) + '</button>' +
+      '<span class="nota-aj">De la puesta a la salida del sol: tema oscuro y tinte rojo que crece hasta la noche cerrada. No cambia el brillo del móvil.</span>' +
+      '<button class="ajuste" id="aj-pantalla" role="switch" aria-checked="' + !!ajustes.pantalla + '"><span>Pantalla siempre encendida en salida libre</span>' + interruptor(ajustes.pantalla) + '</button>' +
+      '<span class="nota-aj">Navegando una ruta, siempre encendida. Sin salida en marcha también manda este interruptor.</span>' +
+      filaAj("Panel de datos", "Elegir datos", 'id="aj-datos"') +
+      '<div class="grupo">Avisos sonoros</div>' +
+      '<button class="ajuste" id="aj-son-gps" role="switch" aria-checked="' + !!ajustes.sonidoGps + '"><span>GPS: al perder y recuperar la señal</span>' + interruptor(ajustes.sonidoGps) + '</button>' +
+      '<button class="ajuste" id="aj-son-bat" role="switch" aria-checked="' + !!ajustes.sonidoBat + '"><span>Batería: al 40, 30, 20 y 10 %</span>' + interruptor(ajustes.sonidoBat) + '</button>' +
+      filaAj("Probar los pitidos", "Escuchar", 'id="aj-son-probar"') +
+      '<span class="nota-aj">Solo suenan con la app en pantalla. Pitidos sin voz.</span>' +
+      '<div class="grupo">Datos y copias</div>' +
+      filaGris("Dónde se guarda", "8", "Solo móvil") +
+      filaGris("Exportar copia", "8") +
+      filaAj("Espacio usado", '<span id="aj-espacio">…</span>', 'id="aj-espacio-b"') +
+      '<div class="grupo">Organización</div>' +
+      filaGris("Tipos de sitio", "5") + filaGris("Carpetas", "5") + filaGris("Etiquetas", "5") +
+      '<div class="grupo">Enlace de seguimiento</div>' +
+      filaGris("Caducidad por defecto", "9") + filaGris("Qué ve quien lo abre", "9") +
+      '<div class="grupo">Acerca de</div>' +
+      filaAj("Versión", VERSION_APP) +
+      filaAj("Créditos", "Mapas: IGN (CC BY 4.0)");
+    abrirPanel("ajustes", "Ajustes", html, function () {
+      $("#aj-datos").onclick = function () { abrirEditor(tipoPanel()); };
+      $("#aj-noche").onclick = function () {
+        ajustes.nocturna = ajustes.nocturna === false; guardarAjustes();
+        this.setAttribute("aria-checked", String(ajustes.nocturna));
+        this.querySelector(".interruptor").classList.toggle("si", ajustes.nocturna);
+        revisarSol();
+      };
+      $("#aj-son-gps").onclick = function () { cambiarSonido("sonidoGps", this); };
+      $("#aj-son-bat").onclick = function () { cambiarSonido("sonidoBat", this); };
+      $("#aj-son-probar").onclick = function () {
+        SONIDOS.gpsPerdido(); toast("GPS perdido");
+        setTimeout(function () { SONIDOS.gpsVuelve(); toast("GPS recuperado"); }, 1300);
+        setTimeout(function () { SONIDOS.bateria(2); toast("Batería al 40 % (y al 10 %)"); }, 2600);
+        setTimeout(function () { SONIDOS.bateria(1); toast("Batería al 30 % y al 20 %"); }, 4000);
+      };
+      $("#aj-tema").onclick = function () {
+        var orden = ["movil", "claro", "oscuro"];
+        ajustes.tema = orden[(orden.indexOf(ajustes.tema) + 1) % 3]; guardarAjustes(); aplicarTema();
+        $("#aj-tema .v").textContent = TEMAS[ajustes.tema];
+      };
+      $("#aj-pantalla").onclick = function () {
+        ajustes.pantalla = !ajustes.pantalla; guardarAjustes();
+        this.setAttribute("aria-checked", String(ajustes.pantalla));
+        this.querySelector(".interruptor").classList.toggle("si", ajustes.pantalla);
+        gestionarPantalla();
+      };
+      if (navigator.storage && navigator.storage.estimate) {
+        navigator.storage.estimate().then(function (e) {
+          var mb = function (b) { return (b / 1048576).toLocaleString("es-ES", { maximumFractionDigits: b < 10485760 ? 1 : 0 }) + " MB"; };
+          $("#aj-espacio").textContent = mb(e.usage || 0) + " de " + mb(e.quota || 0);
+        }).catch(function () { $("#aj-espacio").textContent = "No disponible"; });
+      } else $("#aj-espacio").textContent = "No disponible";
+    });
+  }
+
+  // ---------- Panel de datos: datos disponibles ----------
+  // «salida»: solo tiene sentido con una salida en marcha (sin salida no se muestra)
+  var DATOS = {
+    vel:       { n: "Velocidad" },
+    alt:       { n: "Altitud" },
+    dist:      { n: "Distancia hecha", c: "Hecho", salida: true },
+    tiempo:    { n: "Tiempo", salida: true },
+    desnAcum:  { n: "Desnivel acumulado", c: "Subida", salida: true },
+    falta:     { n: "Lo que falta", c: "Falta", salida: true, nota: "Con ruta (Fase 3)" },
+    llegada:   { n: "Hora de llegada", c: "Llegada", salida: true, nota: "Con ruta (Fase 3)" },
+    desnivel:  { n: "Desnivel", salida: true },
+    pendiente: { n: "Pendiente actual", c: "Pendiente", nota: "Orientativa (altitud del GPS)" },
+    rumbo:     { n: "Rumbo" },
+    coord:     { n: "Coordenadas", nota: "Toca para compartir o copiar" },
+    conexion:  { n: "Conexión" },
+    bateria:   { n: "Batería" },
+    sol:       { n: "Sol", nota: "Próximo momento; toca para ver ayer, hoy y mañana" },
+    parcial:   { n: "Parcial", nota: "Como el del coche; se pone a cero" },
+    vmedia:    { n: "Velocidad media", c: "V. media", salida: true, nota: "En movimiento" },
+    hora:      { n: "Hora" },
+    desp1min:  { n: "Desplazamiento en el último minuto", c: "Mov. 1 min", nota: "Dato de prueba: mide el baile del GPS" }
+  };
+  var DESPLEGADO_DEF = ["desnivel", "pendiente", "rumbo", "coord", "conexion", "bateria", "sol", "parcial"];
+  var PANEL_DEF = {
+    libre: { p: ["vel", "alt", "dist", "tiempo", "desnAcum"], d: DESPLEGADO_DEF },
+    ruta:  { p: ["vel", "alt", "dist", "falta", "llegada"], d: DESPLEGADO_DEF }
+  };
+  var cfgPanel = leer("panel", {});
+  function configPanel(tipo) {
+    var c = cfgPanel[tipo] || PANEL_DEF[tipo], vistos = {};
+    function limpia(l) { return (l || []).filter(function (id) { if (!DATOS[id] || vistos[id]) return false; vistos[id] = 1; return true; }); }
+    var r = { p: limpia(c.p), d: limpia(c.d) };
+    r.s = Object.keys(DATOS).filter(function (id) { return !vistos[id]; });
+    return r;
+  }
+  function guardarConfig(tipo, c) { cfgPanel[tipo] = { p: c.p, d: c.d }; guardar("panel", cfgPanel); pintarPanelDatos(); }
+  function tipoPanel() { return "libre"; }   // «ruta» cuando haya una ruta cargada (Fase 3)
+
+  // Datos en vivo que no dependen de la salida
+  var vivo = { pos: null, buf: [], parcial: leer("parcial", 0), anclaParcial: null, bateria: null, carga: false, guardadoParcial: 0 };
+  function actualizarVivo(pos) {
+    var c = pos.coords, t = pos.timestamp || Date.now();
+    var p = { t: t, lat: c.latitude, lng: c.longitude, alt: (c.altitude === null || isNaN(c.altitude)) ? null : c.altitude, acc: c.accuracy };
+    vivo.pos = pos;
+    vivo.buf.push(p);
+    while (vivo.buf.length && t - vivo.buf[0].t > 300000) vivo.buf.shift();
+    // Parcial: mismo criterio que la distancia de la grabación
+    if (c.accuracy <= PRECISION_MAX) {
+      if (!vivo.anclaParcial) vivo.anclaParcial = p;
+      else {
+        var d = distancia(vivo.anclaParcial, p), kmh = (c.speed === null || isNaN(c.speed)) ? null : c.speed * 3.6;
+        if (t - vivo.anclaParcial.t > HUECO_SEG * 1000 || d >= Math.max(5, c.accuracy) || (kmh !== null && kmh >= VEL_MOVIMIENTO && d >= 2)) {
+          vivo.parcial += d; vivo.anclaParcial = p;
+          if (Date.now() - vivo.guardadoParcial > 10000) { guardar("parcial", vivo.parcial); vivo.guardadoParcial = Date.now(); }
+        }
+      }
+    }
+  }
+  function altSuave(i) {   // media de hasta 5 altitudes buenas alrededor de la posición i del búfer
+    var s = 0, n = 0;
+    for (var k = Math.max(0, i - 4); k <= i; k++) { var q = vivo.buf[k]; if (q.alt !== null && q.acc <= PRECISION_MAX) { s += q.alt; n++; } }
+    return n ? s / n : null;
+  }
+  function pendienteActual() {
+    var b = vivo.buf, i = b.length - 1; if (i < 5) return null;
+    var aNow = altSuave(i); if (aNow === null) return null;
+    for (var k = i - 1; k >= 0; k--) {
+      var d = distancia(b[k], b[i]);
+      if (d >= 60) { var aAnt = altSuave(k); return aAnt === null ? null : (aNow - aAnt) / d * 100; }
+    }
+    return null;
+  }
+  function desplazamiento1min() {
+    var b = vivo.buf, ult = b[b.length - 1]; if (!ult) return null;
+    for (var k = b.length - 1; k >= 0; k--) if (ult.t - b[k].t >= 55000) return distancia(b[k], ult);
+    return null;
+  }
+  var CARD = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
+  function num(x, dec) { return x.toLocaleString("es-ES", { minimumFractionDigits: dec || 0, maximumFractionDigits: dec || 0 }); }
+  function valorDato(id) { var v = valorDato0(id); if (v[0] === "—") v[1] = ""; return v; }
+  function valorDato0(id) {   // [valor, unidad]
+    var c = vivo.pos ? vivo.pos.coords : null, g = grab ? grab.calc : null;
+    switch (id) {
+      case "vel": return [c && c.speed !== null && !isNaN(c.speed) ? Math.round(c.speed * 3.6) : "—", "km/h"];
+      case "alt": return [c && c.altitude !== null && !isNaN(c.altitude) ? Math.round(c.altitude) : "—", "m"];
+      case "dist": return [g ? km(g.dist) : "—", "km"];
+      case "tiempo": return [grab ? duracion((Date.now() - grab.rec.inicio) / 1000) : "—", ""];
+      case "desnAcum": return [g ? "+" + Math.round(g.subida) : "—", "m"];
+      case "falta": case "llegada": return ["—", ""];
+      case "desnivel": return [g ? "+" + Math.round(g.subida) + " / −" + Math.round(g.bajada) : "—", "m"];
+      case "pendiente": var pe = pendienteActual(); return [pe === null ? "—" : num(pe), "%"];
+      case "rumbo":
+        if (!c || c.heading === null || isNaN(c.heading) || (c.speed !== null && c.speed * 3.6 < VEL_MOVIMIENTO)) return ["—", ""];
+        return [Math.round(c.heading) + "° " + CARD[Math.round(c.heading / 45) % 8], ""];
+      case "coord": return [c ? num(c.latitude, 5) + "  " + num(c.longitude, 5).replace("-", "−") : "—", ""];
+      case "conexion":
+        if (!navigator.onLine) return ["Sin conexión", ""];
+        var cx = navigator.connection, tipo = cx && cx.type;
+        return [tipo === "wifi" ? "Sí (Wi-Fi)" : tipo === "cellular" ? "Sí (datos)" : "Sí", ""];
+      case "bateria": return [vivo.bateria === null ? "—" : Math.round(vivo.bateria * 100), vivo.bateria === null ? "" : "%"];
+      case "sol": var ps = proximoSol(); return [ps ? ps.n + " " + horaCorta(ps.t) : "—", ""];
+      case "parcial": return [km(vivo.parcial), "km"];
+      case "vmedia": return [g && g.tMov > 0 ? Math.round(g.dist / g.tMov * 3.6) : "—", "km/h"];
+      case "hora": return [new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }), ""];
+      case "desp1min": var dm = desplazamiento1min(); return [dm === null ? "—" : Math.round(dm), "m"];
+    }
+    return ["—", ""];
+  }
+  function corto(id) { return DATOS[id].c || DATOS[id].n; }
+  function visible(id) { return !!grab || !DATOS[id].salida; }
+
+  // ---------- Panel de datos: dibujo ----------
+  var datosAbierto = false;
+  function pintarPanelDatos() {
+    var cfg = configPanel(tipoPanel()), el = $("#datos");
+    var p = cfg.p.filter(visible), d = cfg.d.filter(visible), html = "";
+    if (p.length) {
+      var v0 = valorDato(p[0]);
+      html += (p[0] !== "vel" ? '<span class="d-etq">' + corto(p[0]) + '</span>' : '') +
+        '<div class="d-grande"><span class="v">' + esc(v0[0]) + '</span><span class="u">' + v0[1] + '</span></div>';
+      if (p.length > 1) html += '<div class="d-celdas">' + p.slice(1).map(function (id) {
+        var v = valorDato(id), ancha = String(v[0]).length + v[1].length > 9;
+        return '<div class="d-celda' + (ancha ? ' ancha' : '') + '"><span class="n">' + corto(id) + '</span><span class="v">' + esc(v[0]) + (v[1] ? '<span class="u-p">' + v[1] + '</span>' : '') + '</span></div>';
+      }).join("") + '</div>';
+    }
+    if (datosAbierto && d.length) html += '<div class="d-desp">' + d.map(function (id) {
+      var v = valorDato(id), txt = esc(v[0]) + (v[1] ? " " + v[1] : "");
+      if (id === "coord") return '<button class="d-fila col" data-acc="coord" aria-label="Compartir o copiar coordenadas"><span class="n">Coordenadas ›</span><span class="v">' + txt + '</span></button>';
+      if (id === "sol") return '<button class="d-fila" data-acc="sol" aria-label="Ver horas del sol"><span class="n">Sol ›</span><span class="v">' + txt + '</span></button>';
+      if (id === "parcial") return '<div class="d-fila"><span><span class="n">Parcial </span><span class="v">' + txt + '</span></span><button class="d-cero" data-acc="cero">Poner a cero</button></div>';
+      var nom = id === "bateria" && vivo.carga ? "Batería (cargando)" : corto(id);
+      return '<div class="d-fila"><span class="n">' + nom + '</span><span class="v">' + txt + '</span></div>';
+    }).join("") + '</div>';
+    if (d.length) html += '<button class="d-flecha" data-acc="flecha" aria-label="' + (datosAbierto ? "Plegar datos" : "Desplegar más datos") + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>';
+    var sc = el.scrollTop; el.innerHTML = html; el.scrollTop = sc;
+    el.classList.toggle("abierto", datosAbierto);
+  }
+  setInterval(pintarPanelDatos, 1000);
+  if (navigator.getBattery) navigator.getBattery().then(function (b) {
+    function lee() { vivo.bateria = b.level; vivo.carga = b.charging; revisarBateria(); }
+    lee(); b.addEventListener("levelchange", lee); b.addEventListener("chargingchange", lee);
+  }).catch(function () {});
+
+  // ---------- Avisos sonoros (0.2.1, parte 4) ----------
+  // Pitidos generados por la app (sin archivos de sonido): funcionan sin conexión.
+  // Solo suenan con la app delante y después de haberla tocado una vez (norma de Chrome).
+  if (ajustes.sonidoGps === undefined) ajustes.sonidoGps = true;
+  if (ajustes.sonidoBat === undefined) ajustes.sonidoBat = true;
+  var audio = null;
+  function prepararAudio() {
+    try {
+      if (!audio) { var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; audio = new AC(); }
+      if (audio.state === "suspended") audio.resume();
+    } catch (e) { return null; }
+    return audio;
+  }
+  document.addEventListener("pointerdown", prepararAudio, true);
+  function tono(f, ini, dur, vol) {
+    var ac = prepararAudio(); if (!ac) return;
+    var o = ac.createOscillator(), g = ac.createGain(), t0 = ac.currentTime + 0.05 + ini, v = vol || 0.35;
+    o.type = "sine"; o.frequency.value = f;
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(v, t0 + 0.01);
+    g.gain.setValueAtTime(v, t0 + dur - 0.03); g.gain.linearRampToValueAtTime(0, t0 + dur);
+    o.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+  }
+  var SONIDOS = {
+    gpsPerdido: function () { tono(880, 0, 0.16); tono(587, 0.2, 0.28); },     // dos notas que bajan
+    gpsVuelve: function () { tono(587, 0, 0.16); tono(880, 0.2, 0.28); },      // las mismas, subiendo
+    bateria: function (n) { for (var i = 0; i < n; i++) tono(523, i * 0.22, 0.12, 0.3); }   // más grave y suave
+  };
+
+  // GPS: «sin GPS» tras 20 s sin una lectura buena (precisión ≤ 50 m). Estimaciones mías, a ajustar.
+  var GPS_SIN_SENAL_MS = 20000;   // ms sin lectura buena para dar el GPS por perdido
+  var GPS_SILENCIO_MS = 30000;    // ms tras recuperarlo en los que no vuelve a pitar por pérdida
+  var gps = { perdido: false, avisado: false, ultBuena: 0, armado: false, recuperado: 0 };
+  function vigilarGps(p) {
+    if (p.coords.accuracy > PRECISION_MAX) return;
+    var ahora = Date.now();
+    gps.ultBuena = ahora; gps.armado = true;   // hasta la primera lectura buena no avisa (al abrir la app)
+    if (gps.perdido) {
+      gps.perdido = false; gps.recuperado = ahora;
+      if (gps.avisado && ajustes.sonidoGps) SONIDOS.gpsVuelve();
+      gps.avisado = false;
+    }
+  }
+  function revisarGps() {
+    if (!gps.armado || gps.perdido || document.hidden) return;
+    var ahora = Date.now();
+    if (ahora - gps.ultBuena < GPS_SIN_SENAL_MS) return;
+    gps.perdido = true;
+    ponerGps("Sin GPS", "rojo");
+    gps.avisado = ajustes.sonidoGps && ahora - gps.recuperado >= GPS_SILENCIO_MS;   // una sola vez, sin repetir
+    if (gps.avisado) SONIDOS.gpsPerdido();
+  }
+  setInterval(revisarGps, 2000);
+  // Al volver a la app (pantalla apagada o en segundo plano) se da un margen antes de dar el GPS por perdido
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) gps.ultBuena = Date.now(); });
+
+  // Batería: 40 % → 2 pitidos; 30 % → 1; 20 % → 1; 10 % → 2. Cada umbral avisa una vez al bajar; cargando, no suena.
+  // Al abrir la app no avisa del umbral en el que ya está (decisión mía: avisa del siguiente).
+  var PITIDOS_BAT = { 40: 2, 30: 1, 20: 1, 10: 2 };
+  var tramoAvisado = null;
+  function tramoBat(pct) { var t = 100; [40, 30, 20, 10].forEach(function (u) { if (pct <= u) t = u; }); return t; }
+  function revisarBateria() {
+    if (vivo.bateria === null) return;
+    var pct = Math.round(vivo.bateria * 100), t = tramoBat(pct);
+    if (tramoAvisado !== null && t < tramoAvisado && !vivo.carga) {
+      if (ajustes.sonidoBat) SONIDOS.bateria(PITIDOS_BAT[t]);
+      toast("Batería al " + pct + " %");
+    }
+    tramoAvisado = t;
+  }
+
+  // Menú del GPS: al tocar su indicador
+  function hojaGps() {
+    var c = ultima ? ultima.coords : null;
+    var estado = gps.perdido ? "Sin señal buena del GPS." : c ? "Precisión ahora: ±" + Math.round(c.accuracy) + " m." : "Buscando señal…";
+    abrirHoja('<h2>GPS</h2><p>' + estado + '</p>' +
+      '<button class="ajuste" id="gps-son" role="switch" aria-checked="' + !!ajustes.sonidoGps + '"><span>Avisos sonoros del GPS</span>' + interruptor(ajustes.sonidoGps) + '</button>' +
+      '<span class="nota-aj">Pita al perder la señal y al recuperarla. También en Ajustes → Avisos sonoros.</span>' +
+      '<div class="acciones"><button id="gps-ok">Cerrar</button></div>', "GPS", function () {
+      $("#gps-son").onclick = function () { cambiarSonido("sonidoGps", this); };
+      $("#gps-ok").onclick = cerrarHoja;
+    });
+  }
+  indGps.addEventListener("click", hojaGps);
+  function cambiarSonido(clave, boton) {
+    ajustes[clave] = !ajustes[clave]; guardarAjustes();
+    boton.setAttribute("aria-checked", String(ajustes[clave]));
+    boton.querySelector(".interruptor").classList.toggle("si", ajustes[clave]);
+  }
+
+  // ---------- Sol: horas de salida, puesta y crepúsculos (fórmulas de SunCalc, sin internet; horizonte plano) ----------
+  var SOL = (function () {
+    var rad = Math.PI / 180, DIA = 86400000, J1970 = 2440588, J2000 = 2451545, e = rad * 23.4397, J0 = 0.0009;
+    function aJuliano(ms) { return ms / DIA - 0.5 + J1970; }
+    function deJuliano(j) { return (j + 0.5 - J1970) * DIA; }
+    function anomalia(d) { return rad * (357.5291 + 0.98560028 * d); }
+    function longEcliptica(M) {
+      var C = rad * (1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 0.0003 * Math.sin(3 * M));
+      return M + C + rad * 102.9372 + Math.PI;
+    }
+    function declinacion(L) { return Math.asin(Math.sin(e) * Math.sin(L)); }
+    function horas(ms, lat, lng) {   // horas del día solar que contiene ms
+      var lw = rad * -lng, phi = rad * lat, d = aJuliano(ms) - J2000;
+      var n = Math.round(d - J0 - lw / (2 * Math.PI));
+      var ds = J0 + lw / (2 * Math.PI) + n, M = anomalia(ds), L = longEcliptica(M), dec = declinacion(L);
+      var Jmed = J2000 + ds + 0.0053 * Math.sin(M) - 0.0069 * Math.sin(2 * L);
+      function par(alt) {
+        var w = Math.acos((Math.sin(alt * rad) - Math.sin(phi) * Math.sin(dec)) / (Math.cos(phi) * Math.cos(dec)));
+        if (isNaN(w)) return [null, null];
+        var a = J0 + (w + lw) / (2 * Math.PI) + n;
+        var Jset = J2000 + a + 0.0053 * Math.sin(M) - 0.0069 * Math.sin(2 * L);
+        return [deJuliano(Jmed - (Jset - Jmed)), deJuliano(Jset)];
+      }
+      var s = par(-0.833), c = par(-6), na = par(-12), as = par(-18);
+      return { iniAstro: as[0], iniNautico: na[0], iniCivil: c[0], salida: s[0], puesta: s[1], finCivil: c[1], finNautico: na[1], finAstro: as[1] };
+    }
+    return { horas: horas };
+  })();
+
+  // Posición para el sol: la del GPS; sin GPS, el centro del mapa
+  function lugarSol() {
+    if (ultima) return { lat: ultima.coords.latitude, lng: ultima.coords.longitude };
+    var c = mapa.getCenter(); return { lat: c.lat, lng: c.lng };
+  }
+  function mediodia(ms, dias) { var d = new Date(ms); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + dias); return d.getTime(); }
+  function diasSol(ahora) {   // ayer, hoy y mañana (y pasado, para la noche de hoy)
+    var l = lugarSol(), r = [];
+    for (var k = -1; k <= 2; k++) r.push(SOL.horas(mediodia(ahora, k), l.lat, l.lng));
+    return r;
+  }
+  function horaCorta(ms) { return new Date(ms).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }); }
+  var IC_SOL = "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4";
+  var IC_LUNA = "M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z";
+  // Fases de la píldora (colores de la maqueta, simulados): [desde, hasta, fondo, letra, icono, qué llega]
+  function fasesSol(h) {
+    var f = [];
+    if (h.puesta) {
+      f.push([h.puesta - 3600000, h.puesta, "#F2A65A", "#12303B", IC_SOL, "puesta de sol"]);
+      if (h.finCivil) f.push([h.puesta, h.finCivil, "#A9474A", "#FFFFFF", IC_SOL, "fin del crepúsculo civil"]);
+      if (h.finCivil && h.finNautico) f.push([h.finCivil, h.finNautico, "#5B4A86", "#FFFFFF", IC_LUNA, "fin del crepúsculo náutico"]);
+      if (h.finNautico && h.finAstro) f.push([h.finNautico, h.finAstro, "#1E2A55", "#FFFFFF", IC_LUNA, "noche cerrada"]);
+    }
+    if (h.salida) {
+      if (h.iniAstro) f.push([h.iniAstro - 3 * 3600000, h.iniAstro, "#05070D", "#FFFFFF", IC_LUNA, "inicio del crepúsculo astronómico"]);
+      if (h.iniAstro && h.iniNautico) f.push([h.iniAstro, h.iniNautico, "#1E2A55", "#FFFFFF", IC_LUNA, "inicio del crepúsculo náutico"]);
+      if (h.iniNautico && h.iniCivil) f.push([h.iniNautico, h.iniCivil, "#5B4A86", "#FFFFFF", IC_LUNA, "inicio del crepúsculo civil"]);
+      if (h.iniCivil) f.push([h.iniCivil, h.salida, "#F4B97A", "#12303B", IC_SOL, "salida del sol"]);
+    }
+    return f;
+  }
+  function cuentaAtras(ms) {
+    var min = Math.max(1, Math.ceil(ms / 60000));
+    if (min < 60) return min + " min";
+    var hh = Math.floor(min / 60), mm = min % 60;
+    return hh + " h" + (mm ? " " + (mm < 10 ? "0" : "") + mm : "");
+  }
+  function proximoSol() {
+    var ahora = Date.now(), dias = diasSol(ahora), lista = [];
+    var NOMBRES = { iniAstro: "Inicio astron.", iniNautico: "Inicio náutico", iniCivil: "Inicio civil", salida: "Salida", puesta: "Puesta", finCivil: "Fin civil", finNautico: "Fin náutico", finAstro: "Noche cerrada" };
+    dias.forEach(function (h) { Object.keys(NOMBRES).forEach(function (k) { if (h[k] && h[k] > ahora) lista.push({ t: h[k], n: NOMBRES[k] }); }); });
+    lista.sort(function (a, b) { return a.t - b.t; });
+    return lista[0] || null;
+  }
+  // Tinte de la pantalla nocturna: 0 de día; de la puesta a la noche cerrada sube; al amanecer baja hasta la salida
+  var TINTE_MAX = 0.85;   // estimación mía, a ajustar de noche
+  var nocheActiva = false;
+  function tinteNoche(ahora, dias) {
+    for (var i = 0; i < dias.length - 1; i++) {
+      var h = dias[i], sig = dias[i + 1];
+      if (!h.puesta || !sig.salida || ahora < h.puesta || ahora >= sig.salida) continue;
+      if (h.finAstro && ahora < h.finAstro) return (ahora - h.puesta) / (h.finAstro - h.puesta);
+      if (sig.iniAstro && ahora >= sig.iniAstro) return (sig.salida - ahora) / (sig.salida - sig.iniAstro);
+      return 1;
+    }
+    return null;   // de día
+  }
+  function revisarSol() {
+    var ahora = Date.now(), dias = diasSol(ahora), fase = null;
+    // Píldora: primero las fases de la tarde y luego las del amanecer
+    for (var i = 0; i < dias.length && !fase; i++) fasesSol(dias[i]).forEach(function (f) { if (!fase && ahora >= f[0] && ahora < f[1]) fase = f; });
+    var p = $("#ind-sol");
+    if (fase) {
+      p.hidden = false; p.style.background = fase[2]; p.style.color = fase[3];
+      p.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + fase[4] + '"/></svg>' + cuentaAtras(fase[1] - ahora);
+      p.setAttribute("aria-label", "Falta " + cuentaAtras(fase[1] - ahora) + " para " + fase[5] + ". Toca para ver las horas del sol");
+    } else p.hidden = true;
+    // Pantalla nocturna
+    var k = ajustes.nocturna === false ? null : tinteNoche(ahora, dias);
+    var antes = nocheActiva; nocheActiva = k !== null;
+    if (nocheActiva !== antes) aplicarTema();
+    $("#tinte-noche").style.opacity = nocheActiva ? (TINTE_MAX * Math.max(0, Math.min(1, k))).toFixed(3) : "0";
+  }
+  function hojaSol() {
+    var ahora = Date.now(), d = diasSol(ahora), l = lugarSol();
+    var filas = [["iniAstro", "Inicio astronómico"], ["iniNautico", "Inicio náutico"], ["iniCivil", "Inicio civil"], ["salida", "Salida del sol"],
+      ["puesta", "Puesta de sol"], ["finCivil", "Fin civil"], ["finNautico", "Fin náutico"], ["finAstro", "Fin astronómico"]];
+    var html = '<h2>Sol</h2><table class="tabla-sol"><thead><tr><th>Momento</th><th>Ayer</th><th>Hoy</th><th>Mañana</th></tr></thead><tbody>' +
+      filas.map(function (f) {
+        return '<tr><td>' + f[1] + '</td>' + [0, 1, 2].map(function (i) { var t = d[i][f[0]]; return '<td' + (i === 1 ? ' class="hoy"' : '') + '>' + (t ? horaCorta(t) : "—") + '</td>'; }).join("") + '</tr>';
+      }).join("") + '</tbody></table>' +
+      '<p class="nota-aj" style="padding:0">Calculado ' + (ultima ? "con tu posición GPS" : "con el centro del mapa (sin GPS)") + ' y la fecha, sin internet, con el horizonte plano: en un barranco el sol se esconde antes. Civil hasta 6° bajo el horizonte, náutico de 6 a 12° y astronómico de 12 a 18°.</p>' +
+      '<div class="acciones"><button id="sol-ok">Cerrar</button></div>';
+    abrirHoja(html, "Sol", function () { $("#sol-ok").onclick = cerrarHoja; });
+  }
+  $("#ind-sol").addEventListener("click", hojaSol);
+  setInterval(revisarSol, 20000);
+  mapaListo.then(revisarSol);
+
+  // Toques en el panel: flecha, coordenadas, parcial; mantener pulsado = Elegir datos
+  (function () {
+    var el = $("#datos"), t = null, largo = false, x0 = 0, y0 = 0;
+    el.addEventListener("pointerdown", function (e) {
+      largo = false; x0 = e.clientX; y0 = e.clientY;
+      t = setTimeout(function () { largo = true; el.classList.remove("mantener"); if (navigator.vibrate) navigator.vibrate(40); abrirEditor(tipoPanel()); }, 600);
+      el.classList.add("mantener");
+    });
+    el.addEventListener("pointermove", function (e) { if (Math.abs(e.clientX - x0) + Math.abs(e.clientY - y0) > 10) { clearTimeout(t); el.classList.remove("mantener"); } });
+    ["pointerup", "pointerleave", "pointercancel"].forEach(function (ev) { el.addEventListener(ev, function () { clearTimeout(t); el.classList.remove("mantener"); }); });
+    el.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+    el.addEventListener("click", function (e) {
+      if (largo) { largo = false; return; }
+      var b = e.target.closest("[data-acc]"); if (!b) return;
+      if (b.dataset.acc === "flecha") { datosAbierto = !datosAbierto; pintarPanelDatos(); }
+      else if (b.dataset.acc === "cero") { vivo.parcial = 0; vivo.anclaParcial = null; guardar("parcial", 0); pintarPanelDatos(); toast("Parcial a cero"); }
+      else if (b.dataset.acc === "coord") hojaCoordenadas();
+      else if (b.dataset.acc === "sol") hojaSol();
+    });
+  })();
+  function hojaCoordenadas() {
+    if (!vivo.pos) { toast("Todavía no hay posición del GPS"); return; }
+    var c = vivo.pos.coords, la = c.latitude.toFixed(5), lo = c.longitude.toFixed(5);
+    var txt = "Mi posición: " + la + ", " + lo + " https://www.google.com/maps?q=" + la + "," + lo;
+    abrirHoja('<h2>Mi posición</h2><p class="pista">' + la + ', ' + lo + ' (±' + Math.round(c.accuracy) + ' m)</p>' +
+      '<div class="acciones"><button id="co-wa">Compartir por WhatsApp</button><button id="co-cp">Copiar coordenadas</button></div>', "Coordenadas", function () {
+      $("#co-wa").onclick = function () { window.open("https://wa.me/?text=" + encodeURIComponent(txt), "_blank"); cerrarHoja(); };
+      $("#co-cp").onclick = function () {
+        navigator.clipboard.writeText(la + ", " + lo).then(function () { toast("Coordenadas copiadas"); cerrarHoja(); })
+          .catch(function () { toast("No se han podido copiar"); });
+      };
+    });
+  }
+
+  // ---------- Elegir datos (dos configuraciones: salida con ruta y salida libre) ----------
+  var tipoEditor = "libre";
+  var ICO_ASA = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
+  var ICO_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+  function abrirEditor(tipo) {
+    tipoEditor = tipo || tipoEditor;
+    var cfg = configPanel(tipoEditor);
+    function ejemplo(id) { var v = valorDato(id); return DATOS[id].nota || (v[0] === "—" ? "Sin dato ahora" : "Ahora: " + v[0] + (v[1] ? " " + v[1] : "")); }
+    function fila(id, grupo) {
+      return '<div class="ed-fila" data-id="' + id + '"><span class="ed-asa" aria-label="Arrastrar ' + DATOS[id].n + '">' + ICO_ASA + '</span>' +
+        '<span class="t"><b>' + DATOS[id].n + '</b><small>' + esc(ejemplo(id)) + '</small></span>' +
+        (grupo === "s" ? '<button class="ed-anadir" data-anadir="' + id + '">Añadir</button>' : '<button class="ed-q" data-quitar="' + id + '" aria-label="Quitar ' + DATOS[id].n + ' del panel">' + ICO_X + '</button>') + '</div>';
+    }
+    var html = '<div class="pestanas" role="tablist">' + [["ruta", "Salida con ruta"], ["libre", "Salida libre"]].map(function (t) {
+        return '<button role="tab" data-tipo="' + t[0] + '" aria-selected="' + (tipoEditor === t[0]) + '">' + t[1] + '</button>'; }).join("") + '</div>' +
+      '<span class="nota-aj">Arrastra por los puntos para cambiar el orden o pasar un dato de un grupo a otro. ' +
+      (tipoEditor === "ruta" ? "Esta configuración se usará cuando haya rutas (Fase 3)." : "Es la que se usa ahora.") + ' Elegir datos es para usar en parado.</span>' +
+      '<div id="ed-lista">' +
+      '<div class="ed-grupo" data-g="p"><b>Panel principal</b><small>Siempre a la vista. El primero se ve en grande.</small></div>' + cfg.p.map(function (id) { return fila(id, "p"); }).join("") +
+      '<div class="ed-grupo" data-g="d"><b>Panel desplegado</b><small>Al tocar la flecha del panel</small></div>' + cfg.d.map(function (id) { return fila(id, "d"); }).join("") +
+      '<div class="ed-grupo" data-g="s"><b>Sin usar</b><small>Datos disponibles que no se ven</small></div>' + cfg.s.map(function (id) { return fila(id, "s"); }).join("") +
+      '</div><div class="chips" style="justify-content:space-between;margin-top:10px"><button id="ed-rest">Volver a los de partida</button><button class="ok" id="ed-listo">Listo</button></div>';
+    var alAbrir = function () {
+      $$("[data-tipo]").forEach(function (b) { b.onclick = function () { abrirEditor(b.dataset.tipo); }; });
+      $$("[data-quitar]").forEach(function (b) { b.onclick = function () {
+        var c = configPanel(tipoEditor), id = b.dataset.quitar;
+        c.p = c.p.filter(function (x) { return x !== id; }); c.d = c.d.filter(function (x) { return x !== id; });
+        guardarConfig(tipoEditor, c); abrirEditor();
+      }; });
+      $$("[data-anadir]").forEach(function (b) { b.onclick = function () {
+        var c = configPanel(tipoEditor); c.d.push(b.dataset.anadir); guardarConfig(tipoEditor, c); abrirEditor(); toast("Añadido al panel desplegado");
+      }; });
+      $("#ed-rest").onclick = function () { delete cfgPanel[tipoEditor]; guardar("panel", cfgPanel); pintarPanelDatos(); abrirEditor(); toast("Datos de partida"); };
+      $("#ed-listo").onclick = cerrarPanel;
+      engancharArrastre();
+    };
+    if (panelAbierto === "editor") repintarPanel(html, alAbrir); else abrirPanel("editor", "Datos del panel", html, alAbrir);
+  }
+  function engancharArrastre() {
+    var lista = $("#ed-lista"), cuerpo = $("#panel-cuerpo"), fila = null, auto = null, ultY = 0;
+    function leerOrden() {
+      var c = { p: [], d: [] }, g = "p";
+      Array.prototype.forEach.call(lista.children, function (el) {
+        if (el.dataset.g) g = el.dataset.g;
+        else if (el.dataset.id && (g === "p" || g === "d")) c[g].push(el.dataset.id);
+      });
+      return c;
+    }
+    function mover(y) {
+      fila.style.pointerEvents = "none";
+      var x = fila.getBoundingClientRect().left + 60, bajo = document.elementFromPoint(x, y);
+      fila.style.pointerEvents = "";
+      var obj = bajo && bajo.closest(".ed-fila, .ed-grupo");
+      if (!obj || obj === fila || !lista.contains(obj)) return;
+      var r = obj.getBoundingClientRect();
+      if (obj.classList.contains("ed-grupo")) {
+        if (y < r.top + r.height / 2) { if (obj.dataset.g !== "p") obj.before(fila); }   // encima de un título: al final del grupo anterior
+        else obj.after(fila);
+      }
+      else if (y < r.top + r.height / 2) obj.before(fila); else obj.after(fila);
+    }
+    lista.addEventListener("pointerdown", function (e) {
+      var asa = e.target.closest(".ed-asa"); if (!asa) return;
+      e.preventDefault(); fila = asa.closest(".ed-fila"); fila.classList.add("arr");
+      ultY = e.clientY;
+      auto = setInterval(function () {   // desplazar la lista si el dedo está cerca de los bordes
+        var r = cuerpo.getBoundingClientRect();
+        if (ultY < r.top + 50) cuerpo.scrollTop -= 12; else if (ultY > r.bottom - 50) cuerpo.scrollTop += 12; else return;
+        mover(ultY);
+      }, 30);
+    });
+    // Al mover la fila dentro de la lista se pierde la «captura» del dedo: se escucha en todo el documento
+    function moverDoc(e) { if (!fila) return; ultY = e.clientY; mover(e.clientY); }
+    function soltar() {
+      document.removeEventListener("pointermove", moverDoc); document.removeEventListener("pointerup", soltar); document.removeEventListener("pointercancel", soltar);
+      if (!fila) return;
+      clearInterval(auto); fila.classList.remove("arr"); fila = null;
+      guardarConfig(tipoEditor, leerOrden()); abrirEditor();
+    }
+    lista.addEventListener("pointerdown", function () {
+      if (!fila) return;
+      document.addEventListener("pointermove", moverDoc); document.addEventListener("pointerup", soltar); document.addEventListener("pointercancel", soltar);
+    });
+  }
+
+  // ---------- Desplegable de acciones ----------
+  var IC = {
+    play: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>',
+    stop: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 6h12v12H6z"/></svg>'
+  };
+  function icono(d) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + d + '"/></svg>'; }
+  function accion(id, d, titulo, sub, fase) {
+    return '<button class="accion' + (fase ? ' gris" data-fase="' + fase : '') + '"' + (id ? ' id="' + id + '"' : '') + '>' + icono(d) +
+      '<span class="t"><b>' + titulo + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span></button>';
+  }
+  function pintarAcciones() {
+    var e = !grab ? "no" : grab.pausa ? "pausa" : "grabando";
+    var ini = e === "grabando" ? { c: "rojo", i: IC.stop, t: "Terminar", s: "Toque: terminar · mantener: pausa" }
+      : e === "pausa" ? { c: "ambar", i: IC.play, t: "Reanudar", s: "Toque: reanudar · mantener: terminar" }
+      : { c: "", i: IC.play, t: "Iniciar", s: "Salida libre (sin ruta)" };
+    var html = '<div class="ini-caja"><button class="ini ' + ini.c + '" id="ac-ini"><span class="carga"></span>' + ini.i + '<span class="ini-t"><b>' + ini.t + '</b><small>' + ini.s + '</small></span></button></div>' +
+      accion("", "M4 6h16M4 12h10M4 18h7M17 15v6M14 18h6", "Cargar ruta", "", "3") +
+      accion("", "M12 21s-6-5.4-6-10a6 6 0 0 1 12 0c0 4.6-6 10-6 10ZM12 8v5M9.5 10.5h5", "Añadir sitio aquí", "", "5") +
+      accion("", "M5 4h10l4 4v12H5zM15 4v4h4M8 12h8M8 16h6", "Nota rápida", "Nota informativa en el mapa", "5") +
+      accion("", "M12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14", "Compartir ubicación", "Enlace de seguimiento", "9") +
+      accion("ac-bloquear", "M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4", "Bloquear toques", "Desbloquear: mantén pulsado 3 s") +
+      (grab ? accion("", "M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3", "Retroceder", "Puntos marcados, sitios cercanos e inicio", "5") +
+              accion("", "M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11ZM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z", "Añadir parada", "Elegir un sitio por el que pasar", "5") : "");
+    var alAbrir = function () {
+      engancharIniciar($("#ac-ini"));
+      $("#ac-bloquear").onclick = bloquear;
+    };
+    if (panelAbierto === "acciones") repintarPanel(html, alAbrir); else abrirPanel("acciones", "Acciones", html, alAbrir);
+  }
+  // Iniciar / Terminar / Reanudar: toque y mantener pulsado hacen cosas distintas
+  function engancharIniciar(b) {
+    var t = null, largo = false;
+    function accionLarga() { if (grab && !grab.pausa) pausar(); else if (grab && grab.pausa) confirmarTerminar(); }
+    function accionCorta() { if (!grab) nuevaGrabacion(); else if (grab.pausa) reanudar(); else confirmarTerminar(); }
+    b.addEventListener("pointerdown", function () {
+      largo = false; if (!grab) return;
+      b.classList.add("manteniendo");
+      t = setTimeout(function () { largo = true; b.classList.remove("manteniendo"); if (navigator.vibrate) navigator.vibrate(40); accionLarga(); }, 600);
+    });
+    ["pointerup", "pointerleave", "pointercancel"].forEach(function (ev) { b.addEventListener(ev, function () { clearTimeout(t); b.classList.remove("manteniendo"); }); });
+    b.addEventListener("click", function () { if (largo) { largo = false; return; } accionCorta(); });
+    b.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  }
+  $("#pestana").addEventListener("click", pintarAcciones);
+  $("#resumen").addEventListener("click", pintarAcciones);
+
+  // ---------- Bloqueo de toques: se desbloquea manteniendo pulsado 3 s en cualquier sitio ----------
+  var relojDesbloqueo = null, relojMsg = null;
+  function bloquear() {
+    if (panelAbierto) cerrarPanel();
+    $("#bloqueo").hidden = false; $("#ind-mano").hidden = false;
+    clearTimeout(relojMsg); $("#bloqueo-msg").hidden = false;
+    relojMsg = setTimeout(function () { $("#bloqueo-msg").hidden = true; }, 2500);
+  }
+  function desbloquear() {
+    clearTimeout(relojDesbloqueo); clearTimeout(relojMsg);
+    $("#bloqueo").hidden = true; $("#bloqueo").classList.remove("mantiene"); $("#bloqueo-msg").hidden = true; $("#ind-mano").hidden = true;
+    toast("Toques desbloqueados");
+  }
+  (function () {
+    var capa = $("#bloqueo"), dedos = 0;
+    capa.addEventListener("pointerdown", function (e) {
+      e.preventDefault(); dedos++;
+      clearTimeout(relojMsg); $("#bloqueo-msg").hidden = false;
+      if (dedos === 1) {
+        capa.classList.remove("mantiene"); void capa.offsetWidth; capa.classList.add("mantiene");
+        relojDesbloqueo = setTimeout(desbloquear, 3000);
+      }
+    });
+    function soltar() {
+      dedos = Math.max(0, dedos - 1); if (dedos) return;
+      clearTimeout(relojDesbloqueo); capa.classList.remove("mantiene");
+      relojMsg = setTimeout(function () { $("#bloqueo-msg").hidden = true; }, 1500);
+    }
+    capa.addEventListener("pointerup", soltar); capa.addEventListener("pointercancel", soltar);
+    capa.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  })();
+
+  // ---------- Menú ----------
+  $("#m-rutas").addEventListener("click", function () { if (panelAbierto === "rutas") cerrarPanel(); else pintarRutas(); });
+  $("#m-ajustes").addEventListener("click", function () { if (panelAbierto === "ajustes") cerrarPanel(); else abrirAjustes(); });
+
+  // ---------- Mejoras (antes «notas de uso»; se conservan las guardadas con la 0.2) ----------
   var notas = leer("notas", []), notaSig = leer("notaSig", 1), filtroNotas = "pendientes", origenNotas = "Mapa";
   var ESTADOS = { pendiente: "Pendiente", resuelta: "Resuelta", descartada: "Descartada" };
   function guardarNotas() { guardar("notas", notas); guardar("notaSig", notaSig); pintarContador(); }
   function pendientes() { return notas.filter(function (n) { return n.estado === "pendiente"; }); }
   function pintarContador() {
-    var b = $("#btn-notas"), n = pendientes().length;
+    var b = $("#btn-mejoras"), n = pendientes().length;
     var c = b.querySelector(".cnt"); if (c) c.remove();
     if (n) b.insertAdjacentHTML("beforeend", '<span class="cnt" aria-hidden="true">' + n + '</span>');
-    b.setAttribute("aria-label", n ? "Notas de uso, " + n + " pendientes" : "Notas de uso");
+    b.setAttribute("aria-label", n ? "Mejoras, " + n + " pendientes" : "Mejoras");
   }
   function textoPos(n) { return n.pos ? n.pos.lat.toFixed(5) + ", " + n.pos.lng.toFixed(5) + " (±" + n.pos.acc + " m)" : "sin posición"; }
   function metaNota(n) {
-    return "Nº " + n.n + ", " + fechaHora(n.fecha) + ". " + n.pantalla + ". " + n.capa + (n.grabando ? ". Grabando" : "") + ". " + textoPos(n) + ". v" + n.version +
-      (n.estado !== "pendiente" ? ". " + ESTADOS[n.estado] : "") + (n.editada ? ". Editada" : "");
+    return fechaHora(n.fecha) + ", pantalla: " + n.pantalla + ", " + n.capa + (n.grabando ? ", grabando" : "") + ", " + textoPos(n) + ", v" + n.version +
+      (n.estado !== "pendiente" ? ", " + ESTADOS[n.estado].toLowerCase() : "") + (n.editada ? ", editada" : "");
   }
-  function abrirNotas() { if (!hojaAbierta) origenNotas = pantalla; filtroNotas = "pendientes"; pintarNotas(); }
-  function pintarNotas() {
-    var lista = notas.filter(function (n) { return filtroNotas === "todas" || n.estado === "pendiente"; }).sort(function (a, b) { return a.fecha - b.fecha; });
+  function abrirMejoras() {
+    if (panelAbierto === "mejoras") { cerrarPanel(); return; }
+    origenNotas = panelAbierto || resAbierto ? pantalla : "Mapa"; filtroNotas = "pendientes"; pintarNotas(true);
+  }
+  function pintarNotas(abrir) {
+    var lista = notas.filter(function (n) { return filtroNotas === "todas" || n.estado === "pendiente"; }).sort(function (a, b) { return b.fecha - a.fecha; });
     var np = pendientes().length;
-    var html = '<div class="cab"><h2>Notas de uso</h2><button class="cerrar" id="cx" aria-label="Cerrar">×</button></div>' +
-      '<p class="pista">Apunta fallos e ideas mientras usas la app; puedes dictar con el micrófono del teclado. Se guarda sola la fecha, la pantalla, la capa, si estabas grabando y tu posición.</p>' +
-      '<div class="seg" id="nf"><button data-v="pendientes" class="' + (filtroNotas === "pendientes" ? "sel" : "") + '">Pendientes (' + np + ')</button><button data-v="todas" class="' + (filtroNotas === "todas" ? "sel" : "") + '">Todas (' + notas.length + ')</button></div>' +
-      '<div class="acciones"><button id="cpn">Copiar pendientes</button></div><div class="err" id="errn"></div>' +
-      '<div class="lista">' + (lista.length ? lista.map(function (n) {
-        return '<button class="item ' + (n.estado !== "pendiente" ? "hecha" : "") + '" data-n="' + n.id + '">' + esc(n.texto) + '<span class="s">' + esc(metaNota(n)) + '</span></button>';
-      }).join("") : '<div class="vacio">' + (filtroNotas === "todas" ? "Todavía no hay notas." : "No hay notas pendientes.") + ' Escribe la primera abajo.</div>') + '</div>' +
-      '<label class="f" for="nt">Nota nueva</label><textarea id="nt" rows="3" placeholder="Escribe o dicta una nota"></textarea>' +
-      '<div class="acciones"><button class="ok" id="gn">Guardar nota</button></div>';
-    abrirHoja(html, "Notas de uso", function () {
-      $("#cx").onclick = cerrarHoja;
-      document.querySelectorAll("#nf button").forEach(function (b) { b.onclick = function () { filtroNotas = b.dataset.v; pintarNotas(); }; });
+    var html =
+      '<div class="caja"><label for="nt">Escribe o dicta una mejora</label><textarea id="nt" rows="2" placeholder="Ej.: el botón Topo tapa la escala"></textarea></div>' +
+      '<div class="chips" style="justify-content:flex-end"><button class="ok" id="gn">Guardar mejora</button></div>' +
+      '<div class="chips"><button data-v="pendientes" class="' + (filtroNotas === "pendientes" ? "sel" : "") + '">Pendientes (' + np + ')</button><button data-v="todas" class="' + (filtroNotas === "todas" ? "sel" : "") + '">Todas (' + notas.length + ')</button><button id="cpn">Copiar pendientes</button></div>' +
+      '<div class="err" id="errn"></div>' +
+      (lista.length ? lista.map(function (n) {
+        return '<button class="fila-lista ' + (n.estado !== "pendiente" ? "hecha" : "") + '" data-n="' + n.id + '"><span class="t"><span class="n">Nº ' + n.n + ', ' + esc(n.texto) + '</span><span class="s">' + esc(metaNota(n)) + '</span></span></button>';
+      }).join("") : '<div class="vacio">' + (filtroNotas === "todas" ? "Todavía no hay mejoras apuntadas." : "No hay mejoras pendientes.") + ' Escribe la primera arriba.</div>') +
+      '<span class="nota-aj">Se guarda sola la fecha, la pantalla, la capa, si estabas grabando, tu posición y la versión. Toca una para editarla, cambiar su estado o borrarla.</span>';
+    var alAbrir = function () {
+      $$(".chips [data-v]").forEach(function (b) { b.onclick = function () { filtroNotas = b.dataset.v; pintarNotas(); }; });
       $("#gn").onclick = function () {
         var v = $("#nt").value.trim();
         if (!v) { $("#errn").textContent = "Escribe algo antes de guardar."; return; }
         var pos = (ultima && Date.now() - ultima.timestamp < 120000) ? { lat: ultima.coords.latitude, lng: ultima.coords.longitude, acc: Math.round(ultima.coords.accuracy) } : null;
         notas.push({ id: "n" + Date.now(), n: notaSig++, fecha: Date.now(), texto: v, pantalla: origenNotas, capa: CAPAS[capaActual].nombre, grabando: !!grab, pos: pos, version: VERSION_APP, estado: "pendiente" });
-        guardarNotas(); toast("Nota guardada"); pintarNotas();
-        var h = $("#hoja"); h.scrollTop = h.scrollHeight;
+        guardarNotas(); toast("Mejora guardada"); pintarNotas();
       };
       $("#cpn").onclick = function () {
         var p = pendientes().sort(function (a, b) { return a.fecha - b.fecha; });
-        if (!p.length) { $("#errn").textContent = "No hay notas pendientes que copiar."; return; }
-        var txt = "Analiza estas notas de uso de mi app Derrotero (versión " + VERSION_APP + "). Para cada una, por su número, dime qué crees que pasa, qué propones y en qué versión entraría.\n\n" +
+        if (!p.length) { $("#errn").textContent = "No hay mejoras pendientes que copiar."; return; }
+        var txt = "Analiza estas mejoras pendientes de mi app Derrotero (versión " + VERSION_APP + "). Para cada una, por su número, dime qué crees que pasa, qué propones y en qué versión entraría.\n\n" +
           p.map(function (n) { return "Nº " + n.n + " | " + fechaHora(n.fecha) + " | Pantalla: " + n.pantalla + " | Capa: " + n.capa + " | Grabando: " + (n.grabando ? "sí" : "no") + " | Posición: " + textoPos(n) + " | v" + n.version + "\n" + n.texto; }).join("\n\n");
-        navigator.clipboard.writeText(txt).then(function () { toast(p.length + (p.length === 1 ? " nota copiada" : " notas copiadas")); })
+        navigator.clipboard.writeText(txt).then(function () { toast(p.length + (p.length === 1 ? " mejora copiada" : " mejoras copiadas")); })
           .catch(function () { $("#errn").textContent = "No se ha podido copiar. Inténtalo otra vez."; });
       };
-      document.querySelectorAll("[data-n]").forEach(function (b) { b.onclick = function () { hojaNota(b.dataset.n); }; });
-    });
+      $$("[data-n]").forEach(function (b) { b.onclick = function () { hojaNota(b.dataset.n); }; });
+    };
+    if (abrir || panelAbierto !== "mejoras") abrirPanel("mejoras", "Mejoras", html, alAbrir); else repintarPanel(html, alAbrir);
   }
   function hojaNota(id) {
     var n = notas.filter(function (x) { return x.id === id; })[0]; if (!n) return;
-    var html = '<h2>Nota nº ' + n.n + '</h2><p class="pista">' + esc(metaNota(n)) + '</p>' +
+    var html = '<h2>Mejora nº ' + n.n + '</h2><p class="pista">' + esc(metaNota(n)) + '</p>' +
       '<label class="f" for="tx">Texto</label><textarea id="tx" rows="4">' + esc(n.texto) + '</textarea>' +
       '<label class="f">Estado</label><div class="seg" id="es">' + Object.keys(ESTADOS).map(function (v) { return '<button data-v="' + v + '" class="' + (n.estado === v ? "sel" : "") + '">' + ESTADOS[v] + '</button>'; }).join("") + '</div>' +
       '<div class="err" id="err"></div>' +
       '<div class="acciones"><button id="no">Volver</button><button class="ok" id="si">Guardar</button></div>' +
-      '<div class="acciones"><button class="peligro" id="del">Borrar nota</button></div>';
+      '<div class="acciones"><button class="peligro" id="del">Borrar mejora</button></div>';
     var estado = n.estado;
-    abrirHoja(html, "Notas de uso", function () {
-      document.querySelectorAll("#es button").forEach(function (b) { b.onclick = function () { estado = b.dataset.v; document.querySelectorAll("#es button").forEach(function (x) { x.classList.toggle("sel", x === b); }); }; });
-      $("#no").onclick = pintarNotas;
+    abrirHoja(html, "Mejoras", function () {
+      $$("#es button").forEach(function (b) { b.onclick = function () { estado = b.dataset.v; $$("#es button").forEach(function (x) { x.classList.toggle("sel", x === b); }); }; });
+      $("#no").onclick = cerrarHoja;
       $("#si").onclick = function () {
         var v = $("#tx").value.trim();
-        if (!v) { $("#err").textContent = "La nota no puede quedar vacía. Si sobra, bórrala."; return; }
+        if (!v) { $("#err").textContent = "La mejora no puede quedar vacía. Si sobra, bórrala."; return; }
         if (v !== n.texto) { n.texto = v; n.editada = true; }
         n.estado = estado; n.cambio = Date.now();
-        guardarNotas(); toast("Nota guardada"); pintarNotas();
+        guardarNotas(); toast("Mejora guardada"); cerrarHoja(); pintarNotas();
       };
       $("#del").onclick = function () {
-        abrirHoja('<h2>¿Borrar la nota nº ' + n.n + '?</h2><p>' + esc(n.texto) + '</p><p>No se puede deshacer. Si ya está arreglada, mejor márcala como resuelta.</p><div class="acciones"><button id="no2">Cancelar</button><button class="rojo" id="si2">Borrar</button></div>', "Notas de uso", function () {
+        abrirHoja('<h2>¿Borrar la mejora nº ' + n.n + '?</h2><p>' + esc(n.texto) + '</p><p>No se puede deshacer. Si ya está arreglada, mejor márcala como resuelta.</p><div class="acciones"><button id="no2">Cancelar</button><button class="rojo" id="si2">Borrar</button></div>', "Mejoras", function () {
           $("#no2").onclick = function () { hojaNota(id); };
-          $("#si2").onclick = function () { notas = notas.filter(function (x) { return x.id !== id; }); guardarNotas(); toast("Nota borrada"); pintarNotas(); };
+          $("#si2").onclick = function () { notas = notas.filter(function (x) { return x.id !== id; }); guardarNotas(); toast("Mejora borrada"); cerrarHoja(); pintarNotas(); };
         });
       };
     });
   }
-  $("#btn-notas").addEventListener("click", abrirNotas);
+  $("#btn-mejoras").addEventListener("click", abrirMejoras);
   pintarContador();
+  pintarAbajo();
+  pintarPanelDatos();
 
   // ---------- Al abrir: grabación sin terminar ----------
   abrirBD().then(function () { return todosRec(); }).then(function (lista) {
-    var abierta = lista.filter(function (r) { return r.estado === "grabando"; }).sort(function (a, b) { return b.inicio - a.inicio; })[0];
+    var abierta = lista.filter(function (r) { return r.estado === "grabando" || r.estado === "pausa"; }).sort(function (a, b) { return b.inicio - a.inicio; })[0];
     if (!abierta) return;
     puntosDe(abierta.id).then(function (pts) {
       pts.sort(function (a, b) { return a.t - b.t; });
       var c = calcular(pts);
-      abrirHoja('<h2>Tienes una grabación sin terminar</h2><p>Empezó el ' + fechaHora(abierta.inicio) + ' y lleva ' + km(c.dist) + ' km.</p>' +
-        '<div class="acciones"><button id="fin">Terminarla</button><button class="ok" id="cont">Seguir grabando</button></div>', "Grabación sin terminar", function () {
-        $("#cont").onclick = function () { abierta.seg = (abierta.seg || 0) + 1; guardarRec(abierta); empezarGrabacion(abierta, pts); cerrarHoja(); toast("Grabando"); };
-        $("#fin").onclick = function () { empezarGrabacion(abierta, pts); terminarGrabacion(); };
+      var pausada = abierta.estado === "pausa";
+      abrirHoja('<h2>Tienes una salida sin terminar</h2><p>Empezó el ' + fechaHora(abierta.inicio) + ' y lleva ' + km(c.dist) + ' km' + (pausada ? '. Está en pausa' : '') + '.</p>' +
+        '<div class="acciones"><button id="fin">Terminarla</button><button class="ok" id="cont">' + (pausada ? "Seguir (en pausa)" : "Seguir grabando") + '</button></div>', "Salida sin terminar", function () {
+        $("#cont").onclick = function () {
+          if (!pausada) { abierta.seg = (abierta.seg || 0) + 1; guardarRec(abierta); }
+          empezarGrabacion(abierta, pts); cerrarHoja(); toast(pausada ? "Salida en pausa" : "Grabando");
+        };
+        $("#fin").onclick = function () { empezarGrabacion(abierta, pts); cerrarHoja(); setTimeout(terminarGrabacion, 60); };
       });
     });
-  }).catch(function () { toast("Este móvil no deja guardar recorridos"); });
+  }).catch(function () { toast("Este móvil no deja guardar salidas"); });
 
   // ---------- Conexión ----------
-  function verRed() { $("#chip-red").hidden = navigator.onLine; }
+  function verRed() { $("#ind-red").hidden = navigator.onLine; }
   window.addEventListener("online", verRed); window.addEventListener("offline", verRed); verRed();
+  $("#ind-red").addEventListener("click", function () { toast("Sin conexión: solo se ve el mapa ya cargado. «Volver a la cobertura» llega más adelante."); });
 
   // ---------- Pantalla siempre encendida ----------
   var bloqueo = null;
-  function pedirPantalla() {
-    if (!("wakeLock" in navigator)) { $("#chip-pantalla").hidden = false; return; }
-    navigator.wakeLock.request("screen").then(function (b) {
-      bloqueo = b; $("#chip-pantalla").hidden = true;
-      b.addEventListener("release", function () { bloqueo = null; });
-    }).catch(function () { $("#chip-pantalla").hidden = false; });
+  function quierePantalla() { return !!ajustes.pantalla; }   // navegando una ruta (Fase 3) será siempre
+  function gestionarPantalla() {
+    if (quierePantalla()) {
+      if (bloqueo) return;
+      if (!("wakeLock" in navigator)) { $("#ind-pantalla").hidden = false; return; }
+      navigator.wakeLock.request("screen").then(function (b) {
+        bloqueo = b; $("#ind-pantalla").hidden = true;
+        b.addEventListener("release", function () { bloqueo = null; });
+      }).catch(function () { $("#ind-pantalla").hidden = false; });
+    } else {
+      $("#ind-pantalla").hidden = true;
+      if (bloqueo) { bloqueo.release().catch(function () {}); bloqueo = null; }
+    }
   }
-  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible" && !bloqueo) pedirPantalla(); });
-  pedirPantalla();
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") gestionarPantalla(); });
+  gestionarPantalla();
 
   // ---------- Funcionar como app instalada ----------
   if ("serviceWorker" in navigator) window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
