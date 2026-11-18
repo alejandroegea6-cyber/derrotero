@@ -533,7 +533,7 @@
 <script>
 (function () {
   "use strict";
-  var VERSION_APP = "0.2.1";
+  var VERSION_APP = "0.2.2";
   var $ = function (s) { return document.querySelector(s); };
   var $$ = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
 
@@ -1559,7 +1559,9 @@
       '<div class="grupo">Pantalla</div>' +
       filaAj("Tema", TEMAS[ajustes.tema] || TEMAS.movil, 'id="aj-tema"') +
       '<button class="ajuste" id="aj-noche" role="switch" aria-checked="' + (ajustes.nocturna !== false) + '"><span>Pantalla nocturna automática (según el sol)</span>' + interruptor(ajustes.nocturna !== false) + '</button>' +
-      '<span class="nota-aj">De la puesta a la salida del sol: tema oscuro y tinte rojo que crece hasta la noche cerrada. No cambia el brillo del móvil.</span>' +
+      '<span class="nota-aj">De la puesta a la salida del sol pone el tema oscuro. No cambia el brillo del móvil.</span>' +
+      '<button class="ajuste" id="aj-rojo" role="switch" aria-checked="' + (ajustes.tinteRojo === true) + '"><span>Tinte rojo de noche</span>' + interruptor(ajustes.tinteRojo === true) + '</button>' +
+      '<span class="nota-aj">Tiñe de rojo toda la pantalla (también el mapa) mientras dura la pantalla nocturna; crece hasta la noche cerrada.</span>' +
       '<button class="ajuste" id="aj-pantalla" role="switch" aria-checked="' + !!ajustes.pantalla + '"><span>Pantalla siempre encendida en salida libre</span>' + interruptor(ajustes.pantalla) + '</button>' +
       '<span class="nota-aj">Navegando una ruta, siempre encendida. Sin salida en marcha también manda este interruptor.</span>' +
       filaAj("Panel de datos", "Elegir datos", 'id="aj-datos"') +
@@ -1585,6 +1587,12 @@
         ajustes.nocturna = ajustes.nocturna === false; guardarAjustes();
         this.setAttribute("aria-checked", String(ajustes.nocturna));
         this.querySelector(".interruptor").classList.toggle("si", ajustes.nocturna);
+        revisarSol();
+      };
+      $("#aj-rojo").onclick = function () {
+        ajustes.tinteRojo = ajustes.tinteRojo !== true; guardarAjustes();
+        this.setAttribute("aria-checked", String(ajustes.tinteRojo));
+        this.querySelector(".interruptor").classList.toggle("si", ajustes.tinteRojo);
         revisarSol();
       };
       $("#aj-son-gps").onclick = function () { cambiarSonido("sonidoGps", this); };
@@ -1920,7 +1928,7 @@
     lista.sort(function (a, b) { return a.t - b.t; });
     return lista[0] || null;
   }
-  // Tinte de la pantalla nocturna: 0 de día; de la puesta a la noche cerrada sube; al amanecer baja hasta la salida
+  // Tinte rojo de la pantalla nocturna (desde la 0.2.2 solo si se activa en Ajustes; por defecto apagado): 0 de día; de la puesta a la noche cerrada sube; al amanecer baja hasta la salida
   var TINTE_MAX = 0.85;   // estimación mía, a ajustar de noche
   var nocheActiva = false;
   function tinteNoche(ahora, dias) {
@@ -1947,7 +1955,7 @@
     var k = ajustes.nocturna === false ? null : tinteNoche(ahora, dias);
     var antes = nocheActiva; nocheActiva = k !== null;
     if (nocheActiva !== antes) aplicarTema();
-    $("#tinte-noche").style.opacity = nocheActiva ? (TINTE_MAX * Math.max(0, Math.min(1, k))).toFixed(3) : "0";
+    $("#tinte-noche").style.opacity = nocheActiva && ajustes.tinteRojo === true ? (TINTE_MAX * Math.max(0, Math.min(1, k))).toFixed(3) : "0";
   }
   function hojaSol() {
     var ahora = Date.now(), d = diasSol(ahora), l = lugarSol();
